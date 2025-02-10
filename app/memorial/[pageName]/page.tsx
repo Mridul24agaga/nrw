@@ -2,15 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { getMemorial, getPostsWithComments } from "@/actions/memorial"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import Sidebar from "@/components/sidebar"
 import WhoToFollow from "@/components/who-to-follow"
-import { FlowerOptions } from "@/components/flower-options"
 import { AddMemoryForm } from "@/components/add-memory-form"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClientComponentClient, type User } from "@supabase/auth-helpers-nextjs"
 import { MemoryCard } from "@/components/memory-card"
-import { FlowerInbox } from "@/components/flower-inbox"
-import { FlowerAnimation } from "@/components/flower-animation"
+import { Button } from "@/components/ui/button"
 
 // Define types for our data structures
 interface Memorial {
@@ -31,9 +29,18 @@ interface Post {
   // Add other relevant fields
 }
 
-interface User {
+interface ExtendedUser extends User {
+  profile?: {
+    username?: string
+    full_name?: string
+  }
+}
+
+interface VirtualFlower {
   id: string
-  // Add other relevant user fields
+  memorial_id: string
+  sender_name: string
+  created_at: string
 }
 
 // Type guard for Memorial
@@ -51,15 +58,16 @@ function isMemorial(data: any): data is Memorial {
 export default function MemorialPage() {
   const params = useParams()
   const pageName = params.pageName as string
+  const router = useRouter()
 
   const [memorial, setMemorial] = useState<Memorial | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [memories, setMemories] = useState<string[]>([])
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<ExtendedUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showFlowerAnimation, setShowFlowerAnimation] = useState(false)
-  const [animationSender, setAnimationSender] = useState("")
+  const [virtualFlowers, setVirtualFlowers] = useState<VirtualFlower[]>([])
+  const [isSendingFlower, setIsSendingFlower] = useState(false)
 
   const supabase = createClientComponentClient()
 
@@ -94,7 +102,34 @@ export default function MemorialPage() {
           error: userError,
         } = await supabase.auth.getUser()
         if (userError) throw userError
-        setUser(user)
+
+        if (user) {
+          // Fetch the user's profile data
+          const { data: profileData, error: profileError } = await supabase
+            .from("profiles")
+            .select("username, full_name")
+            .eq("id", user.id)
+            .single()
+
+          if (!profileError && profileData) {
+            setUser({
+              ...user,
+              profile: profileData,
+            })
+          } else {
+            setUser(user)
+          }
+        }
+
+        // Fetch virtual flowers
+        const { data: flowersData, error: flowersError } = await supabase
+          .from("virtual_flowers")
+          .select("*")
+          .eq("memorial_id", memorialData.id)
+          .order("created_at", { ascending: false })
+
+        if (flowersError) throw flowersError
+        setVirtualFlowers(flowersData || [])
       } catch (err) {
         console.error("Error in MemorialPage:", err)
         setError("Failed to load memorial page. Please try again.")
@@ -106,14 +141,38 @@ export default function MemorialPage() {
     fetchData()
   }, [pageName, supabase])
 
-  const handleNewMemory = (newMemory: string) => {
-    setMemories((prevMemories) => [...prevMemories, newMemory])
+  const handleSendVirtualFlower = async () => {
+    if (!user || !memorial) return
+
+    setIsSendingFlower(true)
+    try {
+      const senderName = user.profile?.full_name || user.profile?.username || user.email || "Anonymous"
+
+      const { data, error } = await supabase
+        .from("virtual_flowers")
+        .insert({
+          memorial_id: memorial.id,
+          sender_name: senderName,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setVirtualFlowers((prev) => [data, ...prev])
+
+      // Redirect to PayPal
+      window.location.href = "https://www.paypal.com/paypalme/YourPayPalLink" // Replace with your actual PayPal.me link
+    } catch (err) {
+      console.error("Error sending virtual flower:", err)
+      setError("Failed to send virtual flower. Please try again.")
+    } finally {
+      setIsSendingFlower(false)
+    }
   }
 
-  const handleFlowerDelivery = (sender: string) => {
-    setAnimationSender(sender)
-    setShowFlowerAnimation(true)
-    setTimeout(() => setShowFlowerAnimation(false), 5000)
+  const handleNewMemory = (newMemory: string) => {
+    setMemories((prevMemories) => [...prevMemories, newMemory])
   }
 
   if (isLoading) {
@@ -166,8 +225,24 @@ export default function MemorialPage() {
                   <p className="text-black whitespace-pre-wrap">{memorial?.bio}</p>
                 </div>
 
-                {memorial && <FlowerOptions memorialId={memorial.id} />}
+                {/* Virtual Flowers Section */}
+                <div className="mt-8">
+                  <h2 className="text-2xl font-semibold mb-4 text-black">Virtual Flowers</h2>
+                  {user && (
+                    <Button onClick={handleSendVirtualFlower} disabled={isSendingFlower} className="mb-4">
+                      {isSendingFlower ? "Sending..." : "Send Virtual Flower"}
+                    </Button>
+                  )}
+                  <div className="space-y-2">
+                    {virtualFlowers.map((flower) => (
+                      <div key={flower.id} className="text-sm text-gray-600">
+                        {flower.sender_name} sent a virtual flower on {new Date(flower.created_at).toLocaleDateString()}
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
+                {/* Memories Section */}
                 <div className="mt-8">
                   <h2 className="text-2xl font-semibold mb-4 text-black">Memories</h2>
                   {memorial && <AddMemoryForm memorialId={memorial.id} onMemoryAdded={handleNewMemory} />}
@@ -182,24 +257,13 @@ export default function MemorialPage() {
                     ))}
                   </div>
                 </div>
-
-                <div className="mt-8">
-                  {memorial && <FlowerInbox memorialId={memorial.id} onFlowerDelivery={handleFlowerDelivery} />}
-                </div>
               </div>
             </div>
           </div>
 
-          {/* Right Sidebar */}
-          <div className="w-full md:w-1/4">
-            <div className="sticky top-20">
-              <WhoToFollow />
-            </div>
-          </div>
+        
         </div>
       </div>
-
-      {showFlowerAnimation && <FlowerAnimation senderName={animationSender} />}
     </div>
   )
 }
