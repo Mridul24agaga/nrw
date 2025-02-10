@@ -5,7 +5,7 @@ import { motion } from "framer-motion"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Button } from "./ui/button"
 import { PricingPopup } from "./pricing-popup"
-import type React from "react" // Import React
+import type React from "react"
 
 interface FlowerOptionsProps {
   memorialId: string
@@ -94,9 +94,15 @@ export function FlowerOptions({ memorialId }: FlowerOptionsProps) {
           initial={{ scale: 0, rotate: 0 }}
           animate={{ scale: 1, rotate: 360 }}
           transition={{ duration: 0.5 }}
-          className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50"
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 50,
+          }}
         >
-          <span role="img" aria-label="Flower" className="text-6xl">
+          <span role="img" aria-label="Flower" style={{ fontSize: "6rem" }}>
             🌹
           </span>
         </motion.div>

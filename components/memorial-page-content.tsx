@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { MemorialPage, Post as PostType } from "@/lib/types"
-import Post from "./post"
+import { Post } from "./post"
 
 interface MemorialPageContentProps {
   memorialPage: MemorialPage & {

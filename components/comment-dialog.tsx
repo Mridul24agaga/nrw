@@ -46,10 +46,12 @@ export function CommentDialog({ postId, isOpen, onClose, currentUser, comments }
     setIsSubmitting(false)
 
     if (result.success) {
+      const now = new Date().toISOString()
       const newComment: CommentType = {
         id: result.commentId,
         content,
-        created_at: new Date().toISOString(),
+        created_at: now,
+        updated_at: now,
         user: currentUser,
         post_id: postId,
         user_id: currentUser.id,
@@ -89,7 +91,7 @@ export function CommentDialog({ postId, isOpen, onClose, currentUser, comments }
                 {comment.user.avatar_url ? (
                   <Image
                     src={getAvatarUrl(comment.user.avatar_url) || "/placeholder.svg"}
-                    alt={comment.user.username}
+                    alt={comment.user.username || "User avatar"}
                     width={32}
                     height={32}
                     className="h-full w-full object-cover"

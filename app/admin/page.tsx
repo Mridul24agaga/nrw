@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase-client-2"
 interface User {
   id: string
   email: string
-  username: string
+  username?: string
   is_premium: boolean
   created_at: string
 }
@@ -30,7 +30,7 @@ export default function AdminPage() {
     try {
       const { data, error } = await supabase
         .from("users")
-        .select("email, username, created_at")
+        .select("id, email, username, is_premium, created_at")
         .order("created_at", { ascending: false })
 
       if (error) {

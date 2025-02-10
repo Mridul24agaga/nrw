@@ -1,4 +1,3 @@
-import type { Metadata } from "next"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { notFound } from "next/navigation"
@@ -12,13 +11,14 @@ import { getFollowerCount, getFollowingCount, getFollowingStatus } from "@/actio
 import type { Post as PostType, User } from "@/lib/types"
 
 type Props = {
-  params: { username: string }
-  searchParams: { [key: string]: string | string[] | undefined }
+  params: Promise<{ username: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-
-
 export default async function ProfilePage({ params, searchParams }: Props) {
+  const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams])
+  const { username } = resolvedParams
+
   const cookieStore = cookies()
   const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
@@ -35,7 +35,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
         user:users!posts_user_id_fkey (id, username, avatar_url)
       )
     `)
-    .eq("username", params.username)
+    .eq("username", username)
     .single()
 
   if (userError || !userData) {

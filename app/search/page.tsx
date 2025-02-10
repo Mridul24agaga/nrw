@@ -8,12 +8,13 @@ import { FollowButton } from "@/components/follow-button"
 import { getFollowingStatus } from "@/actions/user-actions"
 
 interface SearchPageProps {
-  searchParams: { q: string }
+  searchParams: Promise<{ q: string }>
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const supabase = createServerComponentClient({ cookies })
-  const query = searchParams.q
+  const resolvedSearchParams = await searchParams
+  const query = resolvedSearchParams.q
 
   if (!query) {
     notFound()
