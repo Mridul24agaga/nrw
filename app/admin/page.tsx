@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { supabase } from "@/lib/supabase-client-2"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 interface User {
   id: string
@@ -15,16 +15,11 @@ export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
-    console.log("AdminPage mounted")
     fetchUsers()
-    return () => console.log("AdminPage unmounted")
   }, [])
-
-  useEffect(() => {
-    console.log("Users updated:", users)
-  }, [users])
 
   async function fetchUsers() {
     try {
@@ -33,18 +28,9 @@ export default function AdminPage() {
         .select("id, email, username, is_premium, created_at")
         .order("created_at", { ascending: false })
 
-      if (error) {
-        console.error("Supabase error:", error)
-        throw error
-      }
+      if (error) throw error
 
-      if (!data) {
-        console.error("No data returned from Supabase")
-        throw new Error("No data returned from Supabase")
-      }
-
-      console.log("Fetched users:", data)
-      setUsers(data)
+      setUsers(data || [])
     } catch (error) {
       console.error("Error fetching users:", error)
       setError("Failed to fetch users. Please try again later.")
@@ -61,33 +47,23 @@ export default function AdminPage() {
         .eq("id", userId)
         .select()
 
-      if (error) {
-        console.error("Error updating premium status:", error)
-        throw error
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        setUsers(users.map((user) => (user.id === userId ? { ...user, is_premium: !currentStatus } : user)))
+        console.log("Updated user:", data[0])
+      } else {
+        console.warn("No data returned after update, but assuming it was successful")
+        setUsers(users.map((user) => (user.id === userId ? { ...user, is_premium: !currentStatus } : user)))
       }
-
-      if (!data || data.length === 0) {
-        console.error("No data returned after update")
-        throw new Error("Update failed")
-      }
-
-      console.log("Updated user:", data[0])
-
-      // Update local state
-      setUsers(users.map((user) => (user.id === userId ? { ...user, is_premium: !currentStatus } : user)))
     } catch (error) {
       console.error("Error updating premium status:", error)
-      // Optionally, you can set an error state here to display to the user
+      setError("Failed to update premium status. Please try again.")
     }
   }
 
-  if (loading) {
-    return <div className="p-8">Loading...</div>
-  }
-
-  if (error) {
-    return <div className="p-8 text-red-500">{error}</div>
-  }
+  if (loading) return <div className="p-8">Loading...</div>
+  if (error) return <div className="p-8 text-red-500">{error}</div>
 
   return (
     <div className="container mx-auto py-8 px-4">

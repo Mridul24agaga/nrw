@@ -163,7 +163,7 @@ export default function MemorialPage() {
       setVirtualFlowers((prev) => [data, ...prev])
 
       // Redirect to PayPal
-      window.location.href = "https://www.paypal.com/paypalme/YourPayPalLink" // Replace with your actual PayPal.me link
+      window.location.href = "https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA" // Replace with your actual PayPal.me link
     } catch (err) {
       console.error("Error sending virtual flower:", err)
       setError("Failed to send virtual flower. Please try again.")
