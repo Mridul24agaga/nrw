@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useRef } from "react"
 import { Search, Plus, User, LogOut } from "lucide-react"
 import Image from "next/image"
@@ -147,7 +149,10 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-sm">
+    <header className="z-50 bg-white shadow-sm">
+      <div className="bg-green-500 text-white text-center py-2 text-sm">
+        Mobile app coming soon! Stay tuned for updates.
+      </div>
       <div className="mx-auto flex flex-col sm:flex-row h-auto sm:h-16 max-w-[1200px] items-center justify-between gap-4 px-4 py-2 sm:py-0">
         <Link href="/" className="flex items-center gap-2 mb-2 sm:mb-0">
           <Image src="/memories.png" alt="Logo" width={100} height={100} className="w-auto h-8 sm:h-10" />
