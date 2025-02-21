@@ -4,14 +4,15 @@ import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
-// Define the type for our memorial page based on the actual table structure
 type MemorialPage = {
   id: string
   page_name: string
   name: string
-  date_of_death: string
+  date_of_passing: string
+  date_of_birth?: string | undefined
+  anniversary?: string | undefined
   bio: string
-  posts: any[] // Using any[] for the JSONB type
+  posts: any[]
   created_by: string | null
   creator?: {
     username: string
@@ -77,9 +78,19 @@ export async function createMemorial(formData: FormData) {
       )
     }
 
-    const name = formData.get("name") as string
-    const dateOfDeath = formData.get("dateOfDeath") as string
-    const bio = formData.get("bio") as string
+    const name = formData.get("name") as string | null
+    const dateOfPassing = formData.get("dateOfDeath") as string | null
+    const dateOfBirth = formData.get("dateOfBirth") as string | null
+    const anniversary = formData.get("anniversary") as string | null
+    const bio = formData.get("bio") as string | null
+
+    // Validate required fields
+    if (!name || !dateOfPassing) {
+      const missingFields = []
+      if (!name) missingFields.push("name")
+      if (!dateOfPassing) missingFields.push("date of passing")
+      throw new Error(`Missing required fields: ${missingFields.join(", ")}`)
+    }
 
     // Generate base page name
     const baseName = name
@@ -90,16 +101,21 @@ export async function createMemorial(formData: FormData) {
     // Generate unique page name
     const page_name = await generateUniqueName(supabase, baseName)
 
-    // Insert the new memorial page
+    // Prepare the insert object
+    const insertObject: Omit<MemorialPage, "id" | "posts"> = {
+      name,
+      page_name,
+      date_of_passing: dateOfPassing,
+      date_of_birth: dateOfBirth || undefined,
+      anniversary: anniversary || undefined,
+      bio: bio || "",
+      created_by: user.id,
+    }
+
+    // Attempt to insert the new memorial page
     const { data: newPage, error: insertError } = await supabase
       .from("memorialpages212515")
-      .insert({
-        name,
-        page_name,
-        date_of_death: dateOfDeath,
-        bio,
-        created_by: user.id,
-      })
+      .insert(insertObject)
       .select()
       .single()
 
@@ -108,14 +124,22 @@ export async function createMemorial(formData: FormData) {
       if (insertError.code === "23505") {
         throw new Error("A memorial page with this name already exists. Please try a different name.")
       }
-      throw new Error("Error creating memorial page")
+      throw new Error(`Error creating memorial page: ${insertError.message}`)
     }
 
-    revalidatePath("/")
+    if (!newPage) {
+      throw new Error("Failed to create memorial page: No data returned")
+    }
+
     return newPage
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Memorial creation error:", error)
-    throw error
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error("An unknown error occurred while creating the memorial page")
+  } finally {
+    revalidatePath("/")
   }
 }
 
@@ -124,15 +148,6 @@ export async function getMemorial(pageName: string): Promise<MemorialPage | null
   const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
   try {
-    // First verify the table exists and we can access it
-    const { error: tableCheckError } = await supabase.from("memorialpages212515").select("id").limit(1)
-
-    if (tableCheckError) {
-      console.error("Error accessing memorialpages212515 table:", tableCheckError)
-      throw new Error("Database table access error")
-    }
-
-    // First get the memorial page
     const { data: memorial, error: memorialError } = await supabase
       .from("memorialpages212515")
       .select("*")
@@ -149,7 +164,6 @@ export async function getMemorial(pageName: string): Promise<MemorialPage | null
       return null
     }
 
-    // Then get the creator's profile separately
     if (memorial.created_by) {
       const { data: creator, error: creatorError } = await supabase
         .from("profiles")

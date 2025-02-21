@@ -1,12 +1,10 @@
 import Link from "next/link"
-import { Menu, Home, Bookmark, Clock, Users, MessageSquare, Bell, Mail, Info, Scale, User } from "lucide-react"
+import { Menu, Home, Bookmark, Clock, Users, MessageSquare, Bell, Mail, Info, Scale, User, PenTool, MessageCircle } from 'lucide-react'
 
 export default function Sidebar() {
   return (
     <aside className="w-[280px] rounded-xl bg-white p-4 shadow mr-8">
       <nav className="flex flex-col">
-        
-
         <div className="flex flex-col space-y-4">
           {/* Primary Navigation Group */}
           <div className="flex flex-col gap-1">
@@ -17,8 +15,6 @@ export default function Sidebar() {
               <Home size={18} />
               <span>Home</span>
             </Link>
-
-         
 
             <Link
               href="/bookmarks"
@@ -37,6 +33,14 @@ export default function Sidebar() {
             </Link>
 
             <Link
+              href="/memory-maker"
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+            >
+              <PenTool size={18} />
+              <span>Memory Maker</span>
+            </Link>
+
+            <Link
               href="/companion"
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
             >
@@ -44,11 +48,14 @@ export default function Sidebar() {
               <span>Virtual Companion</span>
             </Link>
 
-          
-           
+            <Link
+              href="/chat"
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+            >
+              <MessageCircle size={18} />
+              <span>Chat</span>
+            </Link>
           </div>
-
-          
 
           {/* Footer Navigation Group */}
           <div className="flex flex-col gap-1 pt-4">
@@ -73,4 +80,3 @@ export default function Sidebar() {
     </aside>
   )
 }
-

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { getMemorial, getPostsWithComments } from "@/actions/memorial"
 import { useParams, useRouter } from "next/navigation"
 import Sidebar from "@/components/sidebar"
-import WhoToFollow from "@/components/who-to-follow"
 import { AddMemoryForm } from "@/components/add-memory-form"
 import { createClientComponentClient, type User } from "@supabase/auth-helpers-nextjs"
 import { MemoryCard } from "@/components/memory-card"
@@ -14,7 +13,9 @@ import { Button } from "@/components/ui/button"
 interface Memorial {
   id: string
   name: string
-  date_of_death: string
+  date_of_passing: string
+  date_of_birth?: string
+  anniversary?: string // Changed from date_of_anniversary
   bio: string
   created_by: string
   creator?: {
@@ -49,7 +50,7 @@ function isMemorial(data: any): data is Memorial {
     data &&
     typeof data.id === "string" &&
     typeof data.name === "string" &&
-    typeof data.date_of_death === "string" &&
+    typeof data.date_of_passing === "string" &&
     typeof data.bio === "string" &&
     typeof data.created_by === "string"
   )
@@ -202,13 +203,22 @@ export default function MemorialPage() {
                 <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
                   <h1 className="text-4xl font-bold mb-2">{memorial?.name}</h1>
                   <p className="text-lg opacity-90">
-                    {memorial?.date_of_death &&
-                      new Date(memorial.date_of_death).toLocaleDateString(undefined, {
+                    {memorial?.date_of_passing &&
+                      new Date(memorial.date_of_passing).toLocaleDateString(undefined, {
                         year: "numeric",
                         month: "long",
                         day: "numeric",
                       })}
                   </p>
+                  {memorial?.anniversary && (
+                    <p className="text-lg opacity-90">
+                      {`Anniversary: ${new Date(memorial.anniversary).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}`}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -260,8 +270,6 @@ export default function MemorialPage() {
               </div>
             </div>
           </div>
-
-        
         </div>
       </div>
     </div>

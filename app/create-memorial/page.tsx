@@ -21,7 +21,7 @@ function SubmitButton() {
   )
 }
 
-export default function CreateMemorialPage() {
+export default function CreateMemorialForm() {
   const [error, setError] = useState<string | null>(null)
   const [memorialCount, setMemorialCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -196,6 +196,28 @@ export default function CreateMemorialPage() {
                     name="dateOfDeath"
                     type="date"
                     required
+                    className="mt-1 w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700">
+                    Date of Birth (optional)
+                  </label>
+                  <input
+                    id="dateOfBirth"
+                    name="dateOfBirth"
+                    type="date"
+                    className="mt-1 w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="anniversary" className="block text-sm font-medium text-gray-700">
+                    Anniversary (optional)
+                  </label>
+                  <input
+                    id="anniversary"
+                    name="anniversary"
+                    type="date"
                     className="mt-1 w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
