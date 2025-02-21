@@ -2,119 +2,123 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowLeft, Home } from "lucide-react"
+import { ArrowLeft, Home, Heart, Users, Camera, Quote } from "lucide-react"
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#ff9a9e] to-[#a18cd1]">
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-blue-50">
       {/* Navigation Header */}
-      <nav className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b">
+      <nav className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-purple-100">
         <div className="flex items-center p-4 max-w-7xl mx-auto">
           <div className="flex items-center space-x-4">
-            <Link href="/" className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+            <Link href="/" className="flex items-center text-purple-600 hover:text-purple-800 transition-colors">
               <ArrowLeft className="h-5 w-5 mr-1" />
-              <span className="hidden sm:inline">Back</span>
+              <span className="hidden sm:inline font-medium">Back</span>
             </Link>
-            <div className="h-4 w-px bg-gray-300" />
-            <Link href="/" className="flex items-center text-gray-600 hover:text-gray-900 transition-colors">
+            <div className="h-4 w-px bg-purple-200" />
+            <Link href="/" className="flex items-center text-purple-600 hover:text-purple-800 transition-colors">
               <Home className="h-5 w-5 mr-1" />
-              <span className="hidden sm:inline">Home</span>
+              <span className="hidden sm:inline font-medium">Home</span>
             </Link>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
-      <main className="px-4 py-8 sm:py-12 max-w-4xl mx-auto">
-        <article className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-10 space-y-12">
-          {/* Our Story Section */}
-          <section className="text-center space-y-6">
-            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900">Our Story</h1>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-rose-600">Weaving Threads of Remembrance</h2>
-            <p className="text-gray-600 leading-relaxed max-w-2xl mx-auto">
-              At MemoriesLived.com, we believe that every life tells a unique and beautiful story. Our platform is a
-              digital tapestry where the threads of cherished memories, shared laughter, and enduring love come together
-              to create a lasting tribute to those who have touched our hearts.
+      <main className="px-4 py-12 sm:py-16 max-w-5xl mx-auto">
+        <article className="space-y-16">
+          {/* Hero Section */}
+          <section className="text-center space-y-8">
+            <h1 className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-transparent bg-clip-text">
+              Our Story
+            </h1>
+            <p className="text-xl sm:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+              Where memories become timeless treasures
             </p>
+          </section>
+
+          {/* Family Image Section */}
+          <section className="relative transition-transform duration-300 ease-in-out hover:scale-[1.02]">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-200 to-pink-200 transform rotate-1 rounded-3xl" />
+            <div className="relative bg-white p-6 sm:p-8 rounded-3xl shadow-xl">
+              <Image
+                src="/pic.png"
+                alt="A loving family gathered under a 'HOME' sign, representing our commitment to preserving family memories"
+                width={1200}
+                height={800}
+                className="rounded-2xl w-full object-cover"
+                priority
+              />
+              <div className="mt-6 text-center">
+                <p className="text-lg text-gray-600 italic">"Where life begins & love never ends"</p>
+              </div>
+            </div>
           </section>
 
           {/* Features Grid */}
           <section className="grid sm:grid-cols-3 gap-8">
-            <div className="text-center space-y-3">
-              <h3 className="text-xl font-semibold text-gray-900">Honoring Legacies</h3>
-              <p className="text-gray-600">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="h-12 w-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 mx-auto">
+                <Heart className="h-6 w-6 text-purple-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 text-center mb-3">Honoring Legacies</h3>
+              <p className="text-gray-600 text-center">
                 Create a digital sanctuary where the essence of your loved ones lives on, vibrant and ever-present.
               </p>
             </div>
-            <div className="text-center space-y-3">
-              <h3 className="text-xl font-semibold text-gray-900">Connecting Hearts</h3>
-              <p className="text-gray-600">
-                Bridge distances and generations, allowing family and friends to come together in remembrance and
-                celebration.
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="h-12 w-12 bg-rose-100 rounded-xl flex items-center justify-center mb-4 mx-auto">
+                <Users className="h-6 w-6 text-rose-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 text-center mb-3">Connecting Hearts</h3>
+              <p className="text-gray-600 text-center">
+                Bridge distances and generations, allowing family and friends to come together in remembrance.
               </p>
             </div>
-            <div className="text-center space-y-3">
-              <h3 className="text-xl font-semibold text-gray-900">Capturing Moments</h3>
-              <p className="text-gray-600">
-                Preserve the fleeting instants that defined a life, from milestone achievements to quiet, everyday joys.
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="h-12 w-12 bg-pink-100 rounded-xl flex items-center justify-center mb-4 mx-auto">
+                <Camera className="h-6 w-6 text-pink-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 text-center mb-3">Capturing Moments</h3>
+              <p className="text-gray-600 text-center">
+                Preserve the fleeting instants that defined a life, from milestone achievements to quiet joys.
               </p>
             </div>
           </section>
 
           {/* Mission Section */}
-          <section className="space-y-6">
-            <h2 className="text-3xl font-bold text-gray-900 text-center">Our Heartfelt Mission</h2>
-            <p className="text-gray-600 leading-relaxed">
+          <section className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 sm:p-12 shadow-xl space-y-6">
+            <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">Our Heartfelt Mission</h2>
+            <p className="text-gray-600 leading-relaxed text-lg">
               We're on a journey to transform the way we remember and celebrate lives. MemoriesLived.com is more than a
               platform; it's a compassionate space where grief finds solace, where joy resurfaces in shared stories, and
-              where the legacy of those we've lost continues to inspire and guide us. Our mission is to make the act of
-              remembering as beautiful, personal, and enduring as the lives we honor.
+              where the legacy of those we've lost continues to inspire and guide us.
+            </p>
+            <p className="text-gray-600 leading-relaxed text-lg">
+              Our mission is to make the act of remembering as beautiful, personal, and enduring as the lives we honor.
             </p>
           </section>
 
-          {/* Founder Section */}
-          <section className="space-y-8">
-            <h2 className="text-3xl font-bold text-gray-900 text-center">Meet Our Founder</h2>
-            <div className="flex flex-col md:flex-row items-center gap-8">
-              <div className="w-full md:w-1/3 aspect-square relative">
-                <div className="absolute inset-0 rounded-2xl overflow-hidden">
-                  <Image
-                    src="/placeholder.svg?height=400&width=400"
-                    alt="Founder"
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                  />
-                </div>
-              </div>
-              <div className="w-full md:w-2/3 space-y-4">
-                <h3 className="text-2xl font-semibold text-gray-900">Jane Doe</h3>
-                <p className="text-gray-600 italic">Founder & CEO</p>
-                <p className="text-gray-600 leading-relaxed">
-                  With a deep understanding of loss and the power of remembrance, Jane founded MemoriesLived.com to
-                  create a space where memories could be preserved and shared with dignity and grace. Her vision has
-                  shaped every aspect of our platform, ensuring it serves as a meaningful tribute to those we hold dear.
-                </p>
-              </div>
+          {/* Quote Section */}
+          <section className="relative py-12">
+            <div className="absolute left-4 top-0">
+              <Quote className="h-12 w-12 text-purple-200" />
             </div>
+            <blockquote className="text-center">
+              <p className="text-2xl sm:text-3xl font-medium text-gray-900 max-w-3xl mx-auto">
+                "To live in hearts we leave behind is not to die."
+              </p>
+              <footer className="mt-4 text-gray-600">
+                <cite className="font-medium">Thomas Campbell</cite>
+              </footer>
+            </blockquote>
           </section>
 
-          {/* Labor of Love Section */}
-          <section className="space-y-6">
-            <h2 className="text-3xl font-bold text-gray-900 text-center">A Labor of Love</h2>
-            <p className="text-gray-600 leading-relaxed">
-              MemoriesLived.com is lovingly crafted by CJM Ashton LLC, based in the heart of Austin, TX. We pour our
-              passion into creating a platform that respects the delicate nature of loss while celebrating the enduring
-              power of memory. Every feature, every pixel is designed with care, understanding that we're not just
-              building a website, but a home for your most treasured recollections.
-            </p>
+          {/* Company Info */}
+          <section className="text-center space-y-4">
+            <p className="text-gray-600">MemoriesLived.com is lovingly crafted by CJM Ashton LLC</p>
+            <p className="text-sm text-gray-500">Based in Austin, TX</p>
           </section>
-
-          {/* Quote */}
-          <blockquote className="text-center italic text-gray-600 border-t border-b border-gray-200 py-6">
-            "To live in hearts we leave behind is not to die."
-            <footer className="text-sm mt-2 font-medium">- Thomas Campbell</footer>
-          </blockquote>
         </article>
       </main>
     </div>
