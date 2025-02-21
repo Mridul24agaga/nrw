@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import Image from "next/image"
@@ -347,7 +349,7 @@ export default function VirtualCompanion() {
                     </span>
                   </div>
                 ) : (
-                  <Image src="/placeholder.svg" alt="User" width={32} height={32} className="rounded-full" />
+                  <Image src="/" alt="" width={32} height={32} className="rounded-full" />
                 )}
               </div>
               <div
