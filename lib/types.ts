@@ -26,7 +26,11 @@ export interface Post {
   content: string
   user_id: string
   created_at: string
-  user: User
+  user: {
+    id: string
+    username: string | null
+    avatar_url: string | null
+  }
   likes: Like[]
   bookmarks: Bookmark[]
   comments: Comment[]

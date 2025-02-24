@@ -33,11 +33,11 @@ export default function Sidebar() {
             </Link>
 
             <Link
-              href="/memory-maker"
+              href="/moneymaker"
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
             >
               <PenTool size={18} />
-              <span>Memory Maker</span>
+              <span>Collage Maker</span>
             </Link>
 
             <Link
@@ -45,7 +45,7 @@ export default function Sidebar() {
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
             >
               <Users size={18} />
-              <span>Virtual Companion</span>
+              <span>Diary/ Virtual Companion</span>
             </Link>
 
             <Link

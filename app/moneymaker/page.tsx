@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState, useCallback, useEffect, useRef } from "react"
+import type React from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useDropzone } from "react-dropzone"
 import html2canvas from "html2canvas"
 
@@ -17,7 +18,7 @@ interface Toast {
   id: string
   title: string
   description: string
-  variant: 'default' | 'destructive'
+  variant: "default" | "destructive"
 }
 
 interface CollageLayout {
@@ -31,10 +32,10 @@ const MAX_IMAGES = 20
 const MAX_IMAGE_SIZE = 1024 * 1024 // 1MB
 
 const COLLAGE_LAYOUTS: CollageLayout[] = [
-  { id: '2x2', name: '4 Images (2x2)', imageCount: 4, gridTemplate: 'grid-cols-2 grid-rows-2' },
-  { id: '3x2', name: '6 Images (3x2)', imageCount: 6, gridTemplate: 'grid-cols-3 grid-rows-2' },
-  { id: '3x3', name: '9 Images (3x3)', imageCount: 9, gridTemplate: 'grid-cols-3 grid-rows-3' },
-  { id: '4x3', name: '12 Images (4x3)', imageCount: 12, gridTemplate: 'grid-cols-4 grid-rows-3' },
+  { id: "2x2", name: "4 Images (2x2)", imageCount: 4, gridTemplate: "grid-cols-2 grid-rows-2" },
+  { id: "3x2", name: "6 Images (3x2)", imageCount: 6, gridTemplate: "grid-cols-3 grid-rows-2" },
+  { id: "3x3", name: "9 Images (3x3)", imageCount: 9, gridTemplate: "grid-cols-3 grid-rows-3" },
+  { id: "4x3", name: "12 Images (4x3)", imageCount: 12, gridTemplate: "grid-cols-4 grid-rows-3" },
 ]
 
 export default function MemoryMakerPage() {
@@ -42,36 +43,39 @@ export default function MemoryMakerPage() {
   const [selectedImage, setSelectedImage] = useState<CollageImage | null>(null)
   const [selectedLayout, setSelectedLayout] = useState<CollageLayout>(COLLAGE_LAYOUTS[0])
   const [toasts, setToasts] = useState<Toast[]>([])
-  const [collageBackgroundColor, setCollageBackgroundColor] = useState('#ffffff')
+  const [collageBackgroundColor, setCollageBackgroundColor] = useState("#ffffff")
   const collageRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const savedImages = localStorage.getItem('memory_maker_images')
+    const savedImages = localStorage.getItem("memory_maker_images")
     if (savedImages) {
       setImages(JSON.parse(savedImages))
     }
   }, [])
 
-  const showToast = useCallback((toast: Omit<Toast, 'id'>) => {
+  const showToast = useCallback((toast: Omit<Toast, "id">) => {
     const id = Date.now().toString()
-    setToasts(prev => [...prev, { ...toast, id }])
+    setToasts((prev) => [...prev, { ...toast, id }])
     setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id))
+      setToasts((prev) => prev.filter((t) => t.id !== id))
     }, 3000)
   }, [])
 
-  const saveImages = useCallback((imagesToSave: CollageImage[]) => {
-    try {
-      localStorage.setItem('memory_maker_images', JSON.stringify(imagesToSave))
-    } catch (error) {
-      console.error("Error saving images:", error)
-      showToast({
-        title: "Warning",
-        description: "Failed to save all images. Try removing some images or clearing old data.",
-        variant: "destructive",
-      })
-    }
-  }, [showToast])
+  const saveImages = useCallback(
+    (imagesToSave: CollageImage[]) => {
+      try {
+        localStorage.setItem("memory_maker_images", JSON.stringify(imagesToSave))
+      } catch (error) {
+        console.error("Error saving images:", error)
+        showToast({
+          title: "Warning",
+          description: "Failed to save all images. Try removing some images or clearing old data.",
+          variant: "destructive",
+        })
+      }
+    },
+    [showToast],
+  )
 
   const compressImage = useCallback((src: string): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -179,7 +183,7 @@ export default function MemoryMakerPage() {
   }
 
   const handleLayoutChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newLayout = COLLAGE_LAYOUTS.find(layout => layout.id === event.target.value)
+    const newLayout = COLLAGE_LAYOUTS.find((layout) => layout.id === event.target.value)
     if (newLayout) {
       setSelectedLayout(newLayout)
     }
@@ -216,9 +220,9 @@ export default function MemoryMakerPage() {
   const renderCollage = () => {
     const collageImages = images.slice(0, selectedLayout.imageCount)
     return (
-      <div 
+      <div
         ref={collageRef}
-        className={`grid gap-2 p-4 ${selectedLayout.gridTemplate}`} 
+        className={`grid gap-2 p-4 ${selectedLayout.gridTemplate}`}
         style={{ backgroundColor: collageBackgroundColor }}
       >
         {collageImages.map((image, index) => (
@@ -243,12 +247,14 @@ export default function MemoryMakerPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden text-black">
       <div className="w-64 border-r p-4 overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">Memory Maker</h2>
+        <h2 className="text-xl font-bold mb-4 text-black">Memory Maker</h2>
         <div className="space-y-4">
           <div>
-            <label htmlFor="layout-select" className="block mb-2">Choose Layout</label>
+            <label htmlFor="layout-select" className="block mb-2 text-black">
+              Choose Layout
+            </label>
             <select
               id="layout-select"
               value={selectedLayout.id}
@@ -263,7 +269,9 @@ export default function MemoryMakerPage() {
             </select>
           </div>
           <div>
-            <label htmlFor="bg-color" className="block mb-2">Background Color</label>
+            <label htmlFor="bg-color" className="block mb-2 text-black">
+              Background Color
+            </label>
             <input
               id="bg-color"
               type="color"
@@ -272,38 +280,27 @@ export default function MemoryMakerPage() {
               className="w-full p-1 border rounded"
             />
           </div>
-          <div 
-            {...getRootProps()} 
-            className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer"
-          >
+          <div {...getRootProps()} className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer">
             <input {...getInputProps()} />
-            <p className="text-sm">
-              {isDragActive
-                ? "Drop the images here ..."
-                : "Drag 'n' drop images, or click to select"}
+            <p className="text-sm text-black">
+              {isDragActive ? "Drop the images here ..." : "Drag 'n' drop images, or click to select"}
             </p>
           </div>
         </div>
-        <button 
-          onClick={handleSave} 
-          className="w-full mt-4 p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
+        <button onClick={handleSave} className="w-full mt-4 p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
           Save Collage
         </button>
       </div>
       <main className="flex-1 overflow-y-auto p-4">
         <div className="mb-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Your Collage</h1>
-          <button 
-            onClick={handleDownload} 
-            className="p-2 bg-green-500 text-white rounded hover:bg-green-600"
-          >
+          <h1 className="text-2xl font-bold text-black">Your Collage</h1>
+          <button onClick={handleDownload} className="p-2 bg-green-500 text-white rounded hover:bg-green-600">
             Download Collage
           </button>
         </div>
         {renderCollage()}
         <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">All Images</h2>
+          <h2 className="text-xl font-semibold mb-4 text-black">All Images</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {images.map((image) => (
               <div key={image.id} className="relative group">
@@ -329,40 +326,43 @@ export default function MemoryMakerPage() {
         </div>
         {selectedImage && (
           <div className="mt-8 p-4 bg-gray-100 rounded-lg">
-            <h3 className="text-lg font-semibold mb-4">Edit Image</h3>
+            <h3 className="text-lg font-semibold mb-4 text-black">Edit Image</h3>
             <div className="space-y-4">
-              <button 
-                onClick={handleRotate} 
-                className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
+              <button onClick={handleRotate} className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600">
                 Rotate
               </button>
               <div>
-                <label htmlFor="brightness" className="block mb-2">Brightness</label>
+                <label htmlFor="brightness" className="block mb-2 text-black">
+                  Brightness
+                </label>
                 <input
                   id="brightness"
                   type="range"
                   min={0}
                   max={200}
                   value={selectedImage.brightness}
-                  onChange={(e) => handleImageChange('brightness', Number(e.target.value))}
+                  onChange={(e) => handleImageChange("brightness", Number(e.target.value))}
                   className="w-full"
                 />
               </div>
               <div>
-                <label htmlFor="contrast" className="block mb-2">Contrast</label>
+                <label htmlFor="contrast" className="block mb-2 text-black">
+                  Contrast
+                </label>
                 <input
                   id="contrast"
                   type="range"
                   min={0}
                   max={200}
                   value={selectedImage.contrast}
-                  onChange={(e) => handleImageChange('contrast', Number(e.target.value))}
+                  onChange={(e) => handleImageChange("contrast", Number(e.target.value))}
                   className="w-full"
                 />
               </div>
               <div>
-                <label htmlFor="blur" className="block mb-2">Blur</label>
+                <label htmlFor="blur" className="block mb-2 text-black">
+                  Blur
+                </label>
                 <input
                   id="blur"
                   type="range"
@@ -370,7 +370,7 @@ export default function MemoryMakerPage() {
                   max={10}
                   step={0.1}
                   value={selectedImage.blur}
-                  onChange={(e) => handleImageChange('blur', Number(e.target.value))}
+                  onChange={(e) => handleImageChange("blur", Number(e.target.value))}
                   className="w-full"
                 />
               </div>
@@ -392,7 +392,7 @@ export default function MemoryMakerPage() {
           <div
             key={toast.id}
             className={`p-4 rounded-lg shadow-lg ${
-              toast.variant === 'destructive' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+              toast.variant === "destructive" ? "bg-red-500 text-white" : "bg-green-500 text-white"
             }`}
           >
             <h4 className="font-bold">{toast.title}</h4>
@@ -403,3 +403,4 @@ export default function MemoryMakerPage() {
     </div>
   )
 }
+

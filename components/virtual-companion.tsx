@@ -323,15 +323,7 @@ export default function VirtualCompanion() {
                 className="form-checkbox h-5 w-5 text-indigo-600"
               />
             </label>
-            <label className="flex items-center justify-between">
-              <span className="text-sm font-medium">Diary mode</span>
-              <input
-                type="checkbox"
-                checked={companionData.diary_mode}
-                onChange={() => toggleSetting("diary_mode")}
-                className="form-checkbox h-5 w-5 text-indigo-600"
-              />
-            </label>
+          
           </div>
         </div>
       )}

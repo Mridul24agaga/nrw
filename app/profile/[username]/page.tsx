@@ -11,13 +11,12 @@ import { getFollowerCount, getFollowingCount, getFollowingStatus } from "@/actio
 import type { Post as PostType, User } from "@/lib/types"
 
 type Props = {
-  params: Promise<{ username: string }>
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+  params: { username: string }
+  searchParams: { [key: string]: string | string[] | undefined }
 }
 
 export default async function ProfilePage({ params, searchParams }: Props) {
-  const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams])
-  const { username } = resolvedParams
+  const { username } = params
 
   const cookieStore = cookies()
   const supabase = createServerComponentClient({ cookies: () => cookieStore })
@@ -31,7 +30,11 @@ export default async function ProfilePage({ params, searchParams }: Props) {
     .select(`
       *,
       posts (
-        *,
+        id,
+        content,
+        user_id,
+        created_at,
+        last_updated,
         user:users!posts_user_id_fkey (id, username, avatar_url)
       )
     `)
