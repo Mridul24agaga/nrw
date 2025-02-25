@@ -10,13 +10,17 @@ import { FollowButton } from "@/components/follow-button"
 import { getFollowerCount, getFollowingCount, getFollowingStatus } from "@/actions/user-actions"
 import type { Post as PostType, User } from "@/lib/types"
 
+// Update Props type to reflect Promise-wrapped params
 type Props = {
-  params: { username: string }
-  searchParams: { [key: string]: string | string[] | undefined }
+  params: Promise<{ username: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-export default async function ProfilePage({ params, searchParams }: Props) {
-  const { username } = params
+// Export the component with proper async handling
+export default async function ProfilePage(props: Props) {
+  // Await the Promise-wrapped params and searchParams
+  const { username } = await props.params
+  const searchParams = await props.searchParams
 
   const cookieStore = cookies()
   const supabase = createServerComponentClient({ cookies: () => cookieStore })
@@ -74,7 +78,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           {/* Main Content */}
           <div className="flex-1 w-full">
             <div className="rounded-xl bg-white shadow p-4 sm:p-6 mb-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:jusify-between gap-4 mb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                   <Avatar className="h-20 w-20">
                     {user.avatar_url ? (
@@ -127,4 +131,3 @@ export default async function ProfilePage({ params, searchParams }: Props) {
     </div>
   )
 }
-
