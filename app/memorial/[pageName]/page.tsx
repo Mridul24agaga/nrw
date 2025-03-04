@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import { CustomAvatar } from "@/components/custom-avatar"
 import { AvatarUploadDialog } from "@/components/avatar-upload-dialog"
 import { Pencil } from "lucide-react"
-import { toast } from "sonner"
 
 // Define types for our data structures
 interface Memorial {
@@ -208,7 +207,6 @@ export default function MemorialPage() {
       } catch (err) {
         console.error("Error in MemorialPage:", err)
         setError("Failed to load memorial page. Please try again.")
-        toast.error("Failed to load memorial page")
       } finally {
         setIsLoading(false)
       }
@@ -244,14 +242,12 @@ export default function MemorialPage() {
       }
 
       setVirtualFlowers((prev) => [newFlower, ...prev])
-      toast.success("Virtual flower sent successfully")
 
       // Redirect to PayPal
       window.location.href = "https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA"
     } catch (err) {
       console.error("Error sending virtual flower:", err)
       setError("Failed to send virtual flower. Please try again.")
-      toast.error("Failed to send virtual flower")
     } finally {
       setIsSendingFlower(false)
     }
