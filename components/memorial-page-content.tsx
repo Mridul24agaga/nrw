@@ -12,7 +12,20 @@ interface MemorialPageContentProps {
 }
 
 export default function MemorialPageContent({ memorialPage }: MemorialPageContentProps) {
-  const [posts, setPosts] = useState(memorialPage.posts || [])
+  // Transform posts to match the expected shape for the Post component
+  const transformedPosts = (memorialPage.posts || []).map(post => ({
+    id: post.id,
+    content: post.content,
+    user_id: post.user_id,
+    created_at: post.created_at,
+    user: {
+      id: post.user?.id || post.user_id,
+      username: post.user?.username || "Anonymous",
+      avatar_url: post.user?.avatar_url || null,
+    }
+  }))
+  
+  const [posts, setPosts] = useState(transformedPosts)
   const supabase = createClientComponentClient()
 
   return (
@@ -30,4 +43,3 @@ export default function MemorialPageContent({ memorialPage }: MemorialPageConten
     </div>
   )
 }
-

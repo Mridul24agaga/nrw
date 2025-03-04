@@ -1,87 +1,104 @@
 "use client"
 
-import { useState, useTransition } from "react"
-import { Camera } from "lucide-react"
+import type React from "react"
+
+import { useState, useRef } from "react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { updateProfile } from "@/actions/update-profile"
-import { getAvatarUrl } from "@/lib/supabase-client"
-import type { User } from "@/lib/types"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Pencil, Loader2 } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { toast } from "sonner"
 
 interface AvatarUploadProps {
-  currentAvatarUrl: string | null
+  userId: string
+  avatarUrl: string | null
   username: string
-  onAvatarUpdate: (user: User) => void
 }
 
-export function AvatarUpload({ currentAvatarUrl, username, onAvatarUpdate }: AvatarUploadProps) {
-  const [isPending, startTransition] = useTransition()
-  const [preview, setPreview] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+export function AvatarUpload({ userId, avatarUrl, username }: AvatarUploadProps) {
+  const router = useRouter()
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const supabase = createClientComponentClient()
+
+  // Get the first letter of username for avatar fallback
+  const avatarFallback = (username || "?").charAt(0).toUpperCase()
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Create preview
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setPreview(reader.result as string)
-    }
-    reader.readAsDataURL(file)
+    try {
+      setIsUploading(true)
 
-    // Create FormData and upload
-    const formData = new FormData()
-    formData.append("avatar", file)
+      // 1. Upload the file to Supabase Storage
+      const fileExt = file.name.split(".").pop()
+      const fileName = `${userId}-${Date.now()}.${fileExt}`
+      const filePath = `avatars/${fileName}`
 
-    setError(null)
-    startTransition(async () => {
-      const result = await updateProfile(formData)
-      if (result.error) {
-        console.error(result.error)
-        setError(result.error)
-        setPreview(null)
-      } else if (result.user) {
-        onAvatarUpdate(result.user)
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      // 2. Get the public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(filePath)
+
+      // 3. Update the user's avatar_url in the database
+      const { error: updateError } = await supabase.from("users").update({ avatar_url: publicUrl }).eq("id", userId)
+
+      if (updateError) throw updateError
+
+      toast.success("Avatar updated successfully")
+      router.refresh()
+    } catch (error) {
+      console.error("Error uploading avatar:", error)
+      toast.error("Failed to update avatar")
+    } finally {
+      setIsUploading(false)
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
       }
-    })
+    }
   }
 
-  const avatarSrc = preview || (currentAvatarUrl ? getAvatarUrl(currentAvatarUrl) : "/placeholder.svg")
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
 
   return (
     <div className="relative group">
-      <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 overflow-hidden">
-        <Image
-          src={avatarSrc || "/placeholder.svg"}
-          alt={username}
-          width={96}
-          height={96}
-          className="h-full w-full object-cover"
-        />
-      </div>
+      <Avatar className="h-20 w-20 cursor-pointer" onClick={handleAvatarClick}>
+        {avatarUrl ? (
+          <Image
+            src={avatarUrl || "/placeholder.svg"}
+            alt={username || "User avatar"}
+            width={80}
+            height={80}
+            className="rounded-full object-cover"
+          />
+        ) : (
+          <AvatarFallback className="text-2xl">{avatarFallback}</AvatarFallback>
+        )}
+      </Avatar>
 
-      <label
-        htmlFor="avatar-upload"
-        className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 group-hover:opacity-100 rounded-full cursor-pointer transition-opacity"
-      >
-        <Camera className="w-6 h-6" />
-        <input
-          id="avatar-upload"
-          type="file"
-          accept="image/jpeg,image/png,image/gif"
-          onChange={handleFileChange}
-          className="hidden"
-          disabled={isPending}
-        />
-      </label>
-
-      {isPending && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white rounded-full">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+      {isUploading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
+          <Loader2 className="h-5 w-5 animate-spin text-white" />
         </div>
       )}
 
-      {error && <div className="absolute -bottom-8 left-0 right-0 text-red-500 text-xs text-center">{error}</div>}
+      <div
+        className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+        onClick={handleAvatarClick}
+      >
+        <Pencil className="h-5 w-5 text-white" />
+      </div>
+
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
     </div>
   )
 }

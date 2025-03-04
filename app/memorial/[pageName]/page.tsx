@@ -8,6 +8,10 @@ import { AddMemoryForm } from "@/components/add-memory-form"
 import { createClientComponentClient, type User } from "@supabase/auth-helpers-nextjs"
 import { MemoryCard } from "@/components/memory-card"
 import { Button } from "@/components/ui/button"
+import { CustomAvatar } from "@/components/custom-avatar"
+import { AvatarUploadDialog } from "@/components/avatar-upload-dialog"
+import { Pencil } from "lucide-react"
+import { toast } from "sonner"
 
 // Define types for our data structures
 interface Memorial {
@@ -15,11 +19,13 @@ interface Memorial {
   name: string
   date_of_passing: string
   date_of_birth?: string
-  anniversary?: string // Changed from date_of_anniversary
+  anniversary?: string
   bio: string
   created_by: string
   creator?: {
+    id?: string
     username: string
+    avatar_url: string | null
   }
 }
 
@@ -27,13 +33,17 @@ interface Post {
   id: string
   content: string
   created_at: string
-  // Add other relevant fields
 }
 
 interface ExtendedUser extends User {
+  id: string
+  email: string
+  created_at: string
+  bio: string | null
   profile?: {
     username?: string
     full_name?: string
+    avatar_url: string | null
   }
 }
 
@@ -41,7 +51,18 @@ interface VirtualFlower {
   id: string
   memorial_id: string
   sender_name: string
+  sender_id?: string
+  sender_avatar: string | null
   created_at: string
+}
+
+interface MemoryAuthor {
+  id: string
+  username: string
+  avatar_url: string | null
+  email?: string
+  bio?: string | null
+  created_at?: string
 }
 
 // Type guard for Memorial
@@ -69,6 +90,7 @@ export default function MemorialPage() {
   const [error, setError] = useState<string | null>(null)
   const [virtualFlowers, setVirtualFlowers] = useState<VirtualFlower[]>([])
   const [isSendingFlower, setIsSendingFlower] = useState(false)
+  const [isCurrentUserCreator, setIsCurrentUserCreator] = useState(false)
 
   const supabase = createClientComponentClient()
 
@@ -77,10 +99,41 @@ export default function MemorialPage() {
       setIsLoading(true)
       setError(null)
       try {
+        // Get current user first
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession()
+        if (sessionError) throw sessionError
+
+        const currentUserId = session?.user?.id
+
+        // Fetch memorial data
         const memorialData = await getMemorial(pageName)
         if (!memorialData || !isMemorial(memorialData)) {
           throw new Error("Memorial not found or invalid for page: " + pageName)
         }
+
+        // Check if current user is the creator
+        setIsCurrentUserCreator(currentUserId === memorialData.created_by)
+
+        // Fetch creator details including avatar
+        if (memorialData.created_by) {
+          const { data: creatorData, error: creatorError } = await supabase
+            .from("users")
+            .select("id, username, avatar_url")
+            .eq("id", memorialData.created_by)
+            .single()
+
+          if (!creatorError && creatorData) {
+            memorialData.creator = {
+              id: creatorData.id,
+              username: creatorData.username || "Anonymous",
+              avatar_url: creatorData.avatar_url,
+            }
+          }
+        }
+
         setMemorial(memorialData)
 
         const postsData = await getPostsWithComments(memorialData.id)
@@ -95,45 +148,67 @@ export default function MemorialPage() {
           .eq("id", memorialData.id)
           .single()
 
-        if (memoriesError) throw memoriesError
+        if (memoriesError && memoriesError.code !== "PGRST116") {
+          console.error("Error fetching memories:", memoriesError)
+        }
+
         setMemories(memoriesData?.memory_message || [])
 
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser()
-        if (userError) throw userError
-
-        if (user) {
+        if (currentUserId && session?.user) {
           // Fetch the user's profile data
           const { data: profileData, error: profileError } = await supabase
             .from("profiles")
-            .select("username, full_name")
-            .eq("id", user.id)
+            .select("username, full_name, avatar_url")
+            .eq("id", currentUserId)
             .single()
 
           if (!profileError && profileData) {
             setUser({
-              ...user,
+              ...session.user,
+              id: session.user.id,
+              email: session.user.email || "",
+              created_at: session.user.created_at || new Date().toISOString(),
+              bio: null,
               profile: profileData,
             })
           } else {
-            setUser(user)
+            setUser({
+              ...session.user,
+              id: session.user.id,
+              email: session.user.email || "",
+              created_at: session.user.created_at || new Date().toISOString(),
+              bio: null,
+              profile: {
+                username: session.user.email?.split("@")[0],
+                avatar_url: null,
+              },
+            })
           }
         }
 
-        // Fetch virtual flowers
+        // Fetch virtual flowers with sender info
         const { data: flowersData, error: flowersError } = await supabase
           .from("virtual_flowers")
-          .select("*")
+          .select("*, sender:sender_id(id, username, avatar_url)")
           .eq("memorial_id", memorialData.id)
           .order("created_at", { ascending: false })
 
-        if (flowersError) throw flowersError
-        setVirtualFlowers(flowersData || [])
+        if (flowersError) {
+          console.error("Error fetching flowers:", flowersError)
+        } else {
+          // Transform flowers data to include sender avatar
+          const transformedFlowers = (flowersData || []).map((flower) => ({
+            ...flower,
+            sender_avatar: flower.sender?.avatar_url || null,
+            sender_id: flower.sender?.id,
+          }))
+
+          setVirtualFlowers(transformedFlowers)
+        }
       } catch (err) {
         console.error("Error in MemorialPage:", err)
         setError("Failed to load memorial page. Please try again.")
+        toast.error("Failed to load memorial page")
       } finally {
         setIsLoading(false)
       }
@@ -154,19 +229,29 @@ export default function MemorialPage() {
         .insert({
           memorial_id: memorial.id,
           sender_name: senderName,
+          sender_id: user.id,
         })
         .select()
         .single()
 
       if (error) throw error
 
-      setVirtualFlowers((prev) => [data, ...prev])
+      // Add the sender's avatar to the new flower
+      const newFlower: VirtualFlower = {
+        ...data,
+        sender_avatar: user.profile?.avatar_url || null,
+        sender_id: user.id,
+      }
+
+      setVirtualFlowers((prev) => [newFlower, ...prev])
+      toast.success("Virtual flower sent successfully")
 
       // Redirect to PayPal
-      window.location.href = "https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA" // Replace with your actual PayPal.me link
+      window.location.href = "https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA"
     } catch (err) {
       console.error("Error sending virtual flower:", err)
       setError("Failed to send virtual flower. Please try again.")
+      toast.error("Failed to send virtual flower")
     } finally {
       setIsSendingFlower(false)
     }
@@ -177,12 +262,32 @@ export default function MemorialPage() {
   }
 
   if (isLoading) {
-    return <div className="text-black">Loading...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+      </div>
+    )
   }
 
   if (error) {
-    return <div className="text-red-500">{error}</div>
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F9FAFB]">
+        <div className="text-red-500 mb-4">{error}</div>
+        <Button onClick={() => router.refresh()}>Try Again</Button>
+      </div>
+    )
   }
+
+  const memoryAuthor: MemoryAuthor | undefined = user
+    ? {
+        id: user.id,
+        username: user.profile?.username || user.email?.split("@")[0] || "Anonymous",
+        avatar_url: user.profile?.avatar_url || null,
+        email: user.email,
+        bio: user.bio,
+        created_at: user.created_at,
+      }
+    : undefined
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] text-black">
@@ -224,6 +329,47 @@ export default function MemorialPage() {
 
               <div className="p-6">
                 <div className="flex items-center gap-4 mb-6">
+                  {/* Creator Avatar with edit capability if current user is creator */}
+                  {isCurrentUserCreator && memorial?.creator ? (
+                    <AvatarUploadDialog
+                      userId={memorial.creator.id || memorial.created_by}
+                      avatarUrl={memorial.creator.avatar_url}
+                      username={memorial.creator.username}
+                    >
+                      <div className="relative group cursor-pointer">
+                        <div className="h-12 w-12 rounded-full overflow-hidden">
+                          <CustomAvatar
+                            user={{
+                              id: memorial.creator.id || memorial.created_by,
+                              username: memorial.creator.username,
+                              avatar_url: memorial.creator.avatar_url,
+                              email: "",
+                              bio: null,
+                              created_at: "",
+                            }}
+                            size={48}
+                          />
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Pencil className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                    </AvatarUploadDialog>
+                  ) : (
+                    <div className="h-12 w-12 rounded-full overflow-hidden">
+                      <CustomAvatar
+                        user={{
+                          id: memorial?.creator?.id || memorial?.created_by || "",
+                          username: memorial?.creator?.username || "Anonymous",
+                          avatar_url: memorial?.creator?.avatar_url || null,
+                          email: "",
+                          bio: null,
+                          created_at: "",
+                        }}
+                        size={48}
+                      />
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm text-black">Created by</p>
                     <p className="font-medium text-lg text-black">{memorial?.creator?.username || "Anonymous"}</p>
@@ -243,10 +389,26 @@ export default function MemorialPage() {
                       {isSendingFlower ? "Sending..." : "Send Virtual Flower"}
                     </Button>
                   )}
-                  <div className="space-y-2">
+                  <div className="space-y-4">
                     {virtualFlowers.map((flower) => (
-                      <div key={flower.id} className="text-sm text-gray-600">
-                        {flower.sender_name} sent a virtual flower on {new Date(flower.created_at).toLocaleDateString()}
+                      <div key={flower.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="h-8 w-8 rounded-full overflow-hidden">
+                          <CustomAvatar
+                            user={{
+                              id: flower.sender_id || "",
+                              username: flower.sender_name,
+                              avatar_url: flower.sender_avatar,
+                              email: "",
+                              bio: null,
+                              created_at: "",
+                            }}
+                            size={32}
+                          />
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-medium">{flower.sender_name}</span> sent a virtual flower on{" "}
+                          <span className="text-gray-600">{new Date(flower.created_at).toLocaleDateString()}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -263,6 +425,7 @@ export default function MemorialPage() {
                         content={memory}
                         createdAt={new Date().toISOString()}
                         pageName={memorial?.name || pageName}
+                        // Remove the author prop as it's not in the MemoryCardProps type
                       />
                     ))}
                   </div>

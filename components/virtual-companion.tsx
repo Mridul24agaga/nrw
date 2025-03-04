@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import Image from "next/image"
@@ -18,7 +17,6 @@ interface CompanionData {
   description: string
   messages: Message[]
   uses_left: number
-  spelling_mistakes: boolean
   diary_mode: boolean
 }
 
@@ -48,7 +46,7 @@ export default function VirtualCompanion() {
     const { data, error } = await supabase
       .from("users")
       .select(
-        "companion_name, companion_description, companion_messages, companion_uses_left, companion_spelling_mistakes, companion_diary_mode",
+        "companion_name, companion_description, companion_messages, companion_uses_left, companion_diary_mode"
       )
       .eq("id", user.id)
       .single()
@@ -65,7 +63,6 @@ export default function VirtualCompanion() {
         description: data.companion_description,
         messages: data.companion_messages || [],
         uses_left: data.companion_uses_left,
-        spelling_mistakes: data.companion_spelling_mistakes,
         diary_mode: data.companion_diary_mode,
       })
       setIsCreating(false)
@@ -94,7 +91,6 @@ export default function VirtualCompanion() {
           companion_description: description,
           companion_messages: [],
           companion_uses_left: 5,
-          companion_spelling_mistakes: true,
           companion_diary_mode: false,
         })
         .eq("id", user.id)
@@ -106,7 +102,6 @@ export default function VirtualCompanion() {
         description,
         messages: [],
         uses_left: 5,
-        spelling_mistakes: true,
         diary_mode: false,
       })
       setIsCreating(false)
@@ -144,7 +139,6 @@ export default function VirtualCompanion() {
             prompt: message,
             description: companionData.description,
             mood,
-            spelling_mistakes: companionData.spelling_mistakes,
           }),
         })
 
@@ -186,7 +180,7 @@ export default function VirtualCompanion() {
     }
   }
 
-  const toggleSetting = async (setting: "spelling_mistakes" | "diary_mode") => {
+  const toggleSetting = async (setting: "diary_mode") => {
     if (!companionData) return
 
     const {
@@ -195,8 +189,7 @@ export default function VirtualCompanion() {
     if (!user) return
 
     const newValue = !companionData[setting]
-    const updateData =
-      setting === "spelling_mistakes" ? { companion_spelling_mistakes: newValue } : { companion_diary_mode: newValue }
+    const updateData = { companion_diary_mode: newValue }
 
     try {
       const { error } = await supabase.from("users").update(updateData).eq("id", user.id)
@@ -313,18 +306,7 @@ export default function VirtualCompanion() {
       {isSettingsOpen && (
         <div className="p-4 border-b">
           <h3 className="font-semibold mb-2">Chatbot Settings</h3>
-          <div className="space-y-2">
-            <label className="flex items-center justify-between">
-              <span className="text-sm font-medium">Spelling mistakes</span>
-              <input
-                type="checkbox"
-                checked={companionData.spelling_mistakes}
-                onChange={() => toggleSetting("spelling_mistakes")}
-                className="form-checkbox h-5 w-5 text-indigo-600"
-              />
-            </label>
-          
-          </div>
+          {/* Removed spelling mistakes toggle */}
         </div>
       )}
 
@@ -406,4 +388,3 @@ export default function VirtualCompanion() {
     </div>
   )
 }
-

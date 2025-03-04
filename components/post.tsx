@@ -2,15 +2,11 @@ import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { PostActions } from "./post-actions"
 import { FollowButton } from "./follow-button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card"
 import { Separator } from "@/components/ui/seperator"
 import { formatDistanceToNow } from "date-fns"
-import { MoreHorizontal } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Image from "next/image"
-import { getFollowingStatus } from "../actions/user-actions"
-import { getFollowerCount } from "../actions/user-actions"
+import { getFollowingStatus, getFollowerCount } from "../actions/user-actions"
+import { CustomAvatar } from "./custom-avatar"
 
 interface PostProps {
   post: {
@@ -19,6 +15,7 @@ interface PostProps {
     user_id: string
     created_at: string
     user: {
+      id?: string
       username: string | null
       avatar_url: string | null
     }
@@ -43,26 +40,24 @@ export async function Post({ post }: PostProps) {
   ])
 
   const username = post.user.username || "Anonymous"
-  const avatarFallback = username.slice(0, 2).toUpperCase()
+
+  // Make sure post.user has all required fields for the CustomAvatar component
+  const postUser = {
+    ...post.user,
+    id: post.user.id || post.user_id,
+    bio: null,
+    created_at: post.created_at,
+    email: ""
+  }
 
   return (
     <Card className="w-full max-w-2xl mx-auto bg-white shadow-sm hover:bg-slate-50/50 transition-colors px-4">
       <CardHeader className="p-3 sm:p-4 px-0">
         <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center space-x-3">
-            <Avatar className="h-10 w-10 border-2 border-primary">
-              {post.user.avatar_url ? (
-                <Image
-                  src={post.user.avatar_url || "/placeholder.svg"}
-                  alt={username}
-                  width={40}
-                  height={40}
-                  className="rounded-full object-cover"
-                />
-              ) : (
-                <AvatarFallback>{avatarFallback}</AvatarFallback>
-              )}
-            </Avatar>
+            <div className="h-10 w-10 border-2 border-primary rounded-full overflow-hidden">
+              <CustomAvatar user={postUser} size={40} className="border-none" />
+            </div>
             <div className="flex flex-col">
               <p className="font-semibold text-sm text-black">{username}</p>
               <div className="flex items-center space-x-2 flex-wrap">
@@ -80,10 +75,6 @@ export async function Post({ post }: PostProps) {
                 <FollowButton userId={post.user_id} initialIsFollowing={followingStatus.isFollowing} />
               </div>
             )}
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <MoreHorizontal className="h-5 w-5 text-black" />
-              <span className="sr-only">More options</span>
-            </Button>
           </div>
         </div>
       </CardHeader>
@@ -103,4 +94,3 @@ export async function Post({ post }: PostProps) {
     </Card>
   )
 }
-

@@ -1,26 +1,31 @@
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { notFound } from "next/navigation"
-import Image from "next/image"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Sidebar from "@/components/sidebar"
-import WhoToFollow from "@/components/who-to-follow"
 import { Post } from "@/components/post"
 import { FollowButton } from "@/components/follow-button"
+import { AvatarUploadDialog } from "@/components/avatar-upload-dialog"
+import { CustomAvatar } from "@/components/custom-avatar"
 import { getFollowerCount, getFollowingCount, getFollowingStatus } from "@/actions/user-actions"
-import type { Post as PostType, User } from "@/lib/types"
+import type { User } from "@/lib/types"
+import { Pencil } from 'lucide-react'
+import { DebugAvatar } from "@/components/debug-avatar"
 
-// Update Props type to reflect Promise-wrapped params
-type Props = {
+// Define the params type correctly for Next.js App Router
+type PageProps = {
   params: Promise<{ username: string }>
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-// Export the component with proper async handling
-export default async function ProfilePage(props: Props) {
-  // Await the Promise-wrapped params and searchParams
-  const { username } = await props.params
-  const searchParams = await props.searchParams
+// Generate static params for known usernames (optional)
+export async function generateStaticParams() {
+  // You can fetch known usernames here if needed
+  return []
+}
+
+export default async function ProfilePage({ params }: PageProps) {
+  // Resolve the params Promise to get the username
+  const resolvedParams = await params
+  const username = resolvedParams.username
 
   const cookieStore = cookies()
   const supabase = createServerComponentClient({ cookies: () => cookieStore })
@@ -52,7 +57,19 @@ export default async function ProfilePage(props: Props) {
 
   const user = userData as User
   const isOwnProfile = session?.user?.id === user.id
-  const posts = (user.posts || []) as PostType[]
+
+  // Transform posts to match the expected shape for the Post component
+  const posts = (user.posts || []).map((post) => ({
+    id: post.id,
+    content: post.content,
+    user_id: post.user_id,
+    created_at: post.created_at,
+    user: {
+      id: post.user?.id || post.user_id,
+      username: post.user?.username || user.username,
+      avatar_url: post.user?.avatar_url || user.avatar_url,
+    },
+  }))
 
   // Fetch follower and following counts using the new actions
   const [followersCount, followingCount, followingStatus] = await Promise.all([
@@ -61,8 +78,9 @@ export default async function ProfilePage(props: Props) {
     session?.user ? getFollowingStatus(user.id) : Promise.resolve({ isFollowing: false }),
   ])
 
-  // Get the first letter of username for avatar fallback
-  const avatarFallback = (user.username || "?").charAt(0).toUpperCase()
+  // Force the component to be dynamic to prevent caching
+  const timestamp = Date.now()
+  const avatarUrlWithCache = user.avatar_url ? `${user.avatar_url}?t=${timestamp}` : null
 
   return (
     <div className="min-h-screen bg-gray-50 text-black">
@@ -80,19 +98,22 @@ export default async function ProfilePage(props: Props) {
             <div className="rounded-xl bg-white shadow p-4 sm:p-6 mb-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:jusify-between gap-4 mb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <Avatar className="h-20 w-20">
-                    {user.avatar_url ? (
-                      <Image
-                        src={user.avatar_url || "/placeholder.svg"}
-                        alt={user.username || "User avatar"}
-                        width={80}
-                        height={80}
-                        className="rounded-full object-cover"
-                      />
-                    ) : (
-                      <AvatarFallback className="text-2xl">{avatarFallback}</AvatarFallback>
-                    )}
-                  </Avatar>
+                  {isOwnProfile ? (
+                    <AvatarUploadDialog userId={user.id} avatarUrl={user.avatar_url} username={user.username || ""}>
+                      <div className="relative group cursor-pointer">
+                        <div className="h-20 w-20 rounded-full overflow-hidden">
+                          <CustomAvatar user={{ ...user, avatar_url: avatarUrlWithCache }} size={80} />
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Pencil className="h-5 w-5 text-white" />
+                        </div>
+                      </div>
+                    </AvatarUploadDialog>
+                  ) : (
+                    <div className="h-20 w-20 rounded-full overflow-hidden">
+                      <CustomAvatar user={{ ...user, avatar_url: avatarUrlWithCache }} size={80} />
+                    </div>
+                  )}
                   <div>
                     <h1 className="text-xl sm:text-2xl font-bold">{user.username || "Anonymous"}</h1>
                     <p className="text-black text-sm sm:text-base">{user.bio || "No bio available"}</p>
@@ -118,13 +139,11 @@ export default async function ProfilePage(props: Props) {
                 <Post key={post.id} post={post} />
               ))}
             </div>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="hidden lg:block lg:w-[280px] lg:shrink-0">
-            <div className="sticky top-20">
-              <WhoToFollow />
-            </div>
+            {isOwnProfile && (
+              <div className="mt-8">
+                <DebugAvatar userId={user.id} />
+              </div>
+            )}
           </div>
         </div>
       </div>

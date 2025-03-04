@@ -1,14 +1,28 @@
-export interface User {
-  id: string
-  email: string
-  avatar_url: string | null
-  username: string | null
+import type { Database } from "@/types/database.types"
+
+// Base types from Supabase database
+export type UserRow = Database["public"]["Tables"]["users"]["Row"]
+export type PostRow = Database["public"]["Tables"]["posts"]["Row"]
+export type FollowRow = Database["public"]["Tables"]["follows"]["Row"]
+export type ProfilePictureRow = Database["public"]["Tables"]["profile_pictures"]["Row"]
+
+// Extended User type with additional properties
+export interface User extends UserRow {
   posts?: Post[]
-  bio: string | null
-  user_metadata: {
+  user_metadata?: {
     username: string
     avatar_url?: string
   }
+}
+
+// Extended Post type with additional properties
+export interface Post extends PostRow {
+  user?: User
+  likes?: Like[]
+  bookmarks?: Bookmark[]
+  comments?: Comment[]
+  likes_count?: number
+  bookmarks_count?: number
 }
 
 export interface Comment {
@@ -19,23 +33,6 @@ export interface Comment {
   created_at: string
   updated_at: string
   user: User
-}
-
-export interface Post {
-  id: string
-  content: string
-  user_id: string
-  created_at: string
-  user: {
-    id: string
-    username: string | null
-    avatar_url: string | null
-  }
-  likes: Like[]
-  bookmarks: Bookmark[]
-  comments: Comment[]
-  likes_count: number
-  bookmarks_count: number
 }
 
 export interface Like {
@@ -73,8 +70,6 @@ export interface FollowResponse {
   followersCount: number
 }
 
-
-
 export interface MemorialPage {
   id: string
   name: string
@@ -89,4 +84,6 @@ export interface MemorialPage {
   relationship_to_deceased: string | null
 }
 
+// Export the ProfilePicture type for use with the new table
+export type ProfilePicture = ProfilePictureRow
 
