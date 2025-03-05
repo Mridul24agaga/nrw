@@ -6,7 +6,6 @@ import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { toast } from "sonner"
 import { Loader2, Upload, Trash } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -130,12 +129,12 @@ export function AvatarEditDialog({ userId, avatarUrl, username, children }: Avat
 
       setPreviewUrl(null)
       setSelectedFile(null)
-      toast.success("Avatar removed")
+      console.log("Avatar removed")
       setIsOpen(false)
       router.refresh()
     } catch (error) {
       console.error("Error removing avatar:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to remove avatar")
+      console.error(error instanceof Error ? error.message : "Failed to remove avatar")
     } finally {
       setIsUploading(false)
     }
@@ -238,12 +237,12 @@ export function AvatarEditDialog({ userId, avatarUrl, username, children }: Avat
         throw new Error(`Failed to update user profile: ${updateError.message}`)
       }
 
-      toast.success("Avatar updated successfully")
+      console.log("Avatar updated successfully")
       setIsOpen(false)
       router.refresh()
     } catch (error) {
       console.error("Error uploading avatar:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to update avatar")
+      console.error(error instanceof Error ? error.message : "Failed to update avatar")
     } finally {
       setIsUploading(false)
     }
