@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { getMemorial, getPostsWithComments } from "@/actions/memorial"
 import { useParams, useRouter } from "next/navigation"
+import Image from "next/image"
 import Sidebar from "@/components/sidebar"
 import { AddMemoryForm } from "@/components/add-memory-form"
 import { createClientComponentClient, type User } from "@supabase/auth-helpers-nextjs"
@@ -10,6 +11,7 @@ import { MemoryCard } from "@/components/memory-card"
 import { Button } from "@/components/ui/button"
 import { CustomAvatar } from "@/components/custom-avatar"
 import { AvatarUploadDialog } from "@/components/avatar-upload-dialog"
+import { MemorialAvatarDialog } from "@/components/memorial-avatar-dialog"
 import { Pencil } from "lucide-react"
 
 // Define types for our data structures
@@ -26,6 +28,8 @@ interface Memorial {
     username: string
     avatar_url: string | null
   }
+  memorial_avatar_url?: string | null
+  memory_message?: string[]
 }
 
 interface Post {
@@ -83,7 +87,7 @@ export default function MemorialPage() {
 
   const [memorial, setMemorial] = useState<Memorial | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
-  const [memories, setMemories] = useState<string[]>([])
+  const [memories, setMemories] = useState<{ content: string; imageUrl: string | null; createdAt: string }[]>([])
   const [user, setUser] = useState<ExtendedUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -135,11 +139,14 @@ export default function MemorialPage() {
 
         setMemorial(memorialData)
 
-        const postsData = await getPostsWithComments(memorialData.id)
-        if (!postsData) {
+        // Fetch posts with better error handling
+        try {
+          const postsData = await getPostsWithComments(memorialData.id)
+          setPosts(postsData || [])
+        } catch (postError) {
           console.error("Failed to fetch posts for memorial:", memorialData.id)
+          setPosts([])
         }
-        setPosts(postsData || [])
 
         const { data: memoriesData, error: memoriesError } = await supabase
           .from("memorialpages212515")
@@ -185,24 +192,55 @@ export default function MemorialPage() {
           }
         }
 
-        // Fetch virtual flowers with sender info
-        const { data: flowersData, error: flowersError } = await supabase
-          .from("virtual_flowers")
-          .select("*, sender:sender_id(id, username, avatar_url)")
-          .eq("memorial_id", memorialData.id)
-          .order("created_at", { ascending: false })
+        // Fetch virtual flowers with better error handling
+        try {
+          // First try with the join query
+          const { data: flowersData, error: flowersError } = await supabase
+            .from("virtual_flowers")
+            .select("id, memorial_id, sender_name, sender_id, created_at")
+            .eq("memorial_id", memorialData.id)
+            .order("created_at", { ascending: false })
 
-        if (flowersError) {
-          console.error("Error fetching flowers:", flowersError)
-        } else {
-          // Transform flowers data to include sender avatar
-          const transformedFlowers = (flowersData || []).map((flower) => ({
-            ...flower,
-            sender_avatar: flower.sender?.avatar_url || null,
-            sender_id: flower.sender?.id,
-          }))
+          if (flowersError) {
+            throw flowersError
+          }
+
+          // Fetch sender avatars separately to avoid join issues
+          const transformedFlowers = await Promise.all(
+            (flowersData || []).map(async (flower) => {
+              let senderAvatar = null
+              let senderId = flower.sender_id
+
+              if (flower.sender_id) {
+                try {
+                  const { data: senderData } = await supabase
+                    .from("users")
+                    .select("id, avatar_url")
+                    .eq("id", flower.sender_id)
+                    .single()
+
+                  if (senderData) {
+                    senderAvatar = senderData.avatar_url
+                    senderId = senderData.id
+                  }
+                } catch (senderError) {
+                  // Ignore errors fetching sender data
+                  console.log("Error fetching sender data:", senderError)
+                }
+              }
+
+              return {
+                ...flower,
+                sender_avatar: senderAvatar,
+                sender_id: senderId,
+              }
+            }),
+          )
 
           setVirtualFlowers(transformedFlowers)
+        } catch (flowersError) {
+          console.error("Error fetching flowers:", flowersError)
+          setVirtualFlowers([]) // Set empty array in case of error
         }
       } catch (err) {
         console.error("Error in MemorialPage:", err)
@@ -222,29 +260,35 @@ export default function MemorialPage() {
     try {
       const senderName = user.profile?.full_name || user.profile?.username || user.email || "Anonymous"
 
-      const { data, error } = await supabase
-        .from("virtual_flowers")
-        .insert({
-          memorial_id: memorial.id,
-          sender_name: senderName,
+      // Check if virtual_flowers table exists
+      try {
+        const { data, error } = await supabase
+          .from("virtual_flowers")
+          .insert({
+            memorial_id: memorial.id,
+            sender_name: senderName,
+            sender_id: user.id,
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+
+        // Add the sender's avatar to the new flower
+        const newFlower: VirtualFlower = {
+          ...data,
+          sender_avatar: user.profile?.avatar_url || null,
           sender_id: user.id,
-        })
-        .select()
-        .single()
+        }
 
-      if (error) throw error
+        setVirtualFlowers((prev) => [newFlower, ...prev])
 
-      // Add the sender's avatar to the new flower
-      const newFlower: VirtualFlower = {
-        ...data,
-        sender_avatar: user.profile?.avatar_url || null,
-        sender_id: user.id,
+        // Redirect to PayPal
+        window.location.href = "https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA"
+      } catch (error) {
+        console.error("Error sending virtual flower:", error)
+        setError("Failed to send virtual flower. Please try again.")
       }
-
-      setVirtualFlowers((prev) => [newFlower, ...prev])
-
-      // Redirect to PayPal
-      window.location.href = "https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA"
     } catch (err) {
       console.error("Error sending virtual flower:", err)
       setError("Failed to send virtual flower. Please try again.")
@@ -253,8 +297,15 @@ export default function MemorialPage() {
     }
   }
 
-  const handleNewMemory = (newMemory: string) => {
-    setMemories((prevMemories) => [...prevMemories, newMemory])
+  const handleNewMemory = (newContent: string, imageUrl?: string) => {
+    const newMemory = {
+      content: newContent,
+      imageUrl: imageUrl || null, // Convert undefined to null explicitly
+      createdAt: new Date().toISOString(),
+    }
+
+    // Type assertion to ensure compatibility with the memories array type
+    setMemories((prevMemories) => [...prevMemories, newMemory as (typeof prevMemories)[0]])
   }
 
   if (isLoading) {
@@ -274,16 +325,14 @@ export default function MemorialPage() {
     )
   }
 
-  const memoryAuthor: MemoryAuthor | undefined = user
+  // Create current user object for memory card
+  const currentUserForMemoryCard = user
     ? {
         id: user.id,
         username: user.profile?.username || user.email?.split("@")[0] || "Anonymous",
         avatar_url: user.profile?.avatar_url || null,
-        email: user.email,
-        bio: user.bio,
-        created_at: user.created_at,
       }
-    : undefined
+    : null
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] text-black">
@@ -301,6 +350,51 @@ export default function MemorialPage() {
             <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-8">
               <div className="relative h-64 bg-gradient-to-r from-blue-500 to-purple-500">
                 <div className="absolute inset-0 bg-black opacity-50"></div>
+
+                {/* Memorial Avatar with edit capability if current user is creator */}
+                {isCurrentUserCreator && memorial ? (
+                  <div className="absolute top-6 right-6">
+                    <MemorialAvatarDialog
+                      memorialId={memorial.id}
+                      avatarUrl={memorial.memorial_avatar_url || null}
+                      memorialName={memorial.name}
+                    >
+                      <div className="relative group cursor-pointer">
+                        <div className="h-24 w-24 rounded-full overflow-hidden bg-white border-2 border-white shadow-lg">
+                          {memorial.memorial_avatar_url ? (
+                            <Image
+                              src={memorial.memorial_avatar_url || "/placeholder.svg"}
+                              alt={memorial.name}
+                              width={96}
+                              height={96}
+                              className="object-cover w-full h-full"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center bg-gray-200">
+                              <span className="text-4xl text-gray-500">{memorial.name[0]?.toUpperCase()}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Pencil className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                    </MemorialAvatarDialog>
+                  </div>
+                ) : memorial?.memorial_avatar_url ? (
+                  <div className="absolute top-6 right-6">
+                    <div className="h-24 w-24 rounded-full overflow-hidden bg-white border-2 border-white shadow-lg">
+                      <Image
+                        src={memorial.memorial_avatar_url || "/placeholder.svg"}
+                        alt={memorial.name}
+                        width={96}
+                        height={96}
+                        className="object-cover w-full h-full"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
                   <h1 className="text-4xl font-bold mb-2">{memorial?.name}</h1>
                   <p className="text-lg opacity-90">
@@ -418,10 +512,12 @@ export default function MemorialPage() {
                     {memories.map((memory, index) => (
                       <MemoryCard
                         key={index}
-                        content={memory}
-                        createdAt={new Date().toISOString()}
+                        memoryId={index.toString()}
+                        memorialId={memorial?.id || ""}
+                        memory={memory}
                         pageName={memorial?.name || pageName}
-                        // Remove the author prop as it's not in the MemoryCardProps type
+                        currentUser={currentUserForMemoryCard}
+                        isCreator={isCurrentUserCreator}
                       />
                     ))}
                   </div>

@@ -6,7 +6,6 @@ import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { toast } from "sonner"
 import { Loader2, Upload, Trash } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -26,6 +25,7 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
   const [isOpen, setIsOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(avatarUrl)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
   const supabase = createClientComponentClient()
@@ -43,6 +43,7 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
     const objectUrl = URL.createObjectURL(file)
     setPreviewUrl(objectUrl)
     setSelectedFile(file)
+    setErrorMessage(null)
 
     // Reset the file input
     e.target.value = ""
@@ -51,13 +52,13 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
   // Use the API route for uploading instead of direct storage access
   const handleSaveAvatar = async () => {
     if (!selectedFile) {
-      toast.error("Please select an image first")
+      setErrorMessage("Please select an image first")
       return
     }
 
     try {
       setIsUploading(true)
-      toast.info("Uploading avatar...")
+      setErrorMessage(null)
 
       // Create a FormData object to send the file
       const formData = new FormData()
@@ -77,12 +78,11 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
 
       const data = await response.json()
 
-      toast.success("Avatar updated successfully")
       setIsOpen(false)
       router.refresh()
     } catch (error) {
       console.error("Error uploading avatar:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to update avatar")
+      setErrorMessage(error instanceof Error ? error.message : "Failed to update avatar")
     } finally {
       setIsUploading(false)
     }
@@ -91,7 +91,7 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
   const handleRemoveAvatar = async () => {
     try {
       setIsUploading(true)
-      toast.info("Removing avatar...")
+      setErrorMessage(null)
 
       // Use the API route to handle avatar removal
       const response = await fetch("/api/remove-avatar", {
@@ -109,12 +109,11 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
 
       setPreviewUrl(null)
       setSelectedFile(null)
-      toast.success("Avatar removed")
       setIsOpen(false)
       router.refresh()
     } catch (error) {
       console.error("Error removing avatar:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to remove avatar")
+      setErrorMessage(error instanceof Error ? error.message : "Failed to remove avatar")
     } finally {
       setIsUploading(false)
     }
@@ -127,6 +126,7 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
       setPreviewUrl(avatarUrl)
       setSelectedFile(null)
       imageRef.current = null
+      setErrorMessage(null)
     }
   }
 
@@ -172,6 +172,8 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
               </div>
             )}
           </div>
+
+          {errorMessage && <div className="text-red-500 text-sm text-center">{errorMessage}</div>}
 
           <div className="flex gap-4">
             <Button type="button" variant="outline" onClick={handleFileSelect} disabled={isUploading}>

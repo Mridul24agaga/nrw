@@ -189,7 +189,7 @@ export default function CreateMemorialForm() {
                 </div>
                 <div>
                   <label htmlFor="dateOfDeath" className="block text-sm font-medium text-gray-700">
-                    Date of Death
+                    Date of Passing
                   </label>
                   <input
                     id="dateOfDeath"

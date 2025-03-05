@@ -1,5 +1,6 @@
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import Image from "next/image"
 import { PostActions } from "./post-actions"
 import { FollowButton } from "./follow-button"
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card"
@@ -14,6 +15,7 @@ interface PostProps {
     content: string
     user_id: string
     created_at: string
+    image_url?: string | null
     user: {
       id?: string
       username: string | null
@@ -47,7 +49,7 @@ export async function Post({ post }: PostProps) {
     id: post.user.id || post.user_id,
     bio: null,
     created_at: post.created_at,
-    email: ""
+    email: "",
   }
 
   return (
@@ -79,7 +81,21 @@ export async function Post({ post }: PostProps) {
         </div>
       </CardHeader>
       <CardContent className="p-3 sm:p-4 px-0">
+        {/* Post content */}
         <p className="text-sm leading-relaxed text-black whitespace-pre-wrap break-words">{post.content}</p>
+
+        {/* Post image */}
+        {post.image_url && (
+          <div className="mt-3 rounded-lg overflow-hidden">
+            <Image
+              src={post.image_url || "/placeholder.svg"}
+              alt="Post image"
+              width={600}
+              height={400}
+              className="object-cover w-full max-h-[500px]"
+            />
+          </div>
+        )}
       </CardContent>
       <CardFooter className="p-3 sm:p-4 pt-0 px-0 flex flex-col items-start space-y-4">
         <Separator className="w-full" />
@@ -89,8 +105,11 @@ export async function Post({ post }: PostProps) {
           initialCommentCount={commentData.count || 0}
           isLiked={!!userLikeData.data}
           isBookmarked={!!userBookmarkData.data}
+          postUserId={post.user_id}
+          currentUserId={user?.id}
         />
       </CardFooter>
     </Card>
   )
 }
+
