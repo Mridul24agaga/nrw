@@ -192,56 +192,8 @@ export default function MemorialPage() {
           }
         }
 
-        // Fetch virtual flowers with better error handling
-        try {
-          // First try with the join query
-          const { data: flowersData, error: flowersError } = await supabase
-            .from("virtual_flowers")
-            .select("id, memorial_id, sender_name, sender_id, created_at")
-            .eq("memorial_id", memorialData.id)
-            .order("created_at", { ascending: false })
-
-          if (flowersError) {
-            throw flowersError
-          }
-
-          // Fetch sender avatars separately to avoid join issues
-          const transformedFlowers = await Promise.all(
-            (flowersData || []).map(async (flower) => {
-              let senderAvatar = null
-              let senderId = flower.sender_id
-
-              if (flower.sender_id) {
-                try {
-                  const { data: senderData } = await supabase
-                    .from("users")
-                    .select("id, avatar_url")
-                    .eq("id", flower.sender_id)
-                    .single()
-
-                  if (senderData) {
-                    senderAvatar = senderData.avatar_url
-                    senderId = senderData.id
-                  }
-                } catch (senderError) {
-                  // Ignore errors fetching sender data
-                  console.log("Error fetching sender data:", senderError)
-                }
-              }
-
-              return {
-                ...flower,
-                sender_avatar: senderAvatar,
-                sender_id: senderId,
-              }
-            }),
-          )
-
-          setVirtualFlowers(transformedFlowers)
-        } catch (flowersError) {
-          console.error("Error fetching flowers:", flowersError)
-          setVirtualFlowers([]) // Set empty array in case of error
-        }
+        // Fetch virtual flowers with improved error handling
+        await fetchVirtualFlowers(memorialData.id)
       } catch (err) {
         console.error("Error in MemorialPage:", err)
         setError("Failed to load memorial page. Please try again.")
@@ -253,6 +205,79 @@ export default function MemorialPage() {
     fetchData()
   }, [pageName, supabase])
 
+  // Separate function to fetch virtual flowers for better organization and error handling
+  const fetchVirtualFlowers = async (memorialId: string) => {
+    try {
+      // First check if the virtual_flowers table exists by querying its structure
+      const { error: tableCheckError } = await supabase.from("virtual_flowers").select("id").limit(1)
+
+      // If there's an error with the table check, the table might not exist
+      if (tableCheckError) {
+        console.error("Error checking virtual_flowers table:", tableCheckError.message)
+        setVirtualFlowers([])
+        return
+      }
+
+      // If table exists, proceed with the query
+      const { data: flowersData, error: flowersError } = await supabase
+        .from("virtual_flowers")
+        .select("id, memorial_id, sender_name, sender_id, created_at")
+        .eq("memorial_id", memorialId)
+        .order("created_at", { ascending: false })
+
+      if (flowersError) {
+        console.error("Error fetching flowers data:", flowersError.message)
+        setVirtualFlowers([])
+        return
+      }
+
+      // Process flowers data safely
+      if (!flowersData || !Array.isArray(flowersData)) {
+        console.warn("No flowers data returned or invalid format")
+        setVirtualFlowers([])
+        return
+      }
+
+      // Fetch sender avatars separately to avoid join issues
+      const transformedFlowers = await Promise.all(
+        flowersData.map(async (flower) => {
+          let senderAvatar = null
+          let senderId = flower.sender_id
+
+          if (flower.sender_id) {
+            try {
+              const { data: senderData, error: senderError } = await supabase
+                .from("users")
+                .select("id, avatar_url")
+                .eq("id", flower.sender_id)
+                .single()
+
+              if (senderError) {
+                console.warn(`Error fetching sender data for ID ${flower.sender_id}:`, senderError.message)
+              } else if (senderData) {
+                senderAvatar = senderData.avatar_url
+                senderId = senderData.id
+              }
+            } catch (senderError) {
+              console.warn(`Exception fetching sender data for ID ${flower.sender_id}:`, senderError)
+            }
+          }
+
+          return {
+            ...flower,
+            sender_avatar: senderAvatar,
+            sender_id: senderId,
+          }
+        }),
+      )
+
+      setVirtualFlowers(transformedFlowers)
+    } catch (error) {
+      console.error("Exception in fetchVirtualFlowers:", error)
+      setVirtualFlowers([])
+    }
+  }
+
   const handleSendVirtualFlower = async () => {
     if (!user || !memorial) return
 
@@ -261,34 +286,39 @@ export default function MemorialPage() {
       const senderName = user.profile?.full_name || user.profile?.username || user.email || "Anonymous"
 
       // Check if virtual_flowers table exists
-      try {
-        const { data, error } = await supabase
-          .from("virtual_flowers")
-          .insert({
-            memorial_id: memorial.id,
-            sender_name: senderName,
-            sender_id: user.id,
-          })
-          .select()
-          .single()
+      const { error: tableCheckError } = await supabase.from("virtual_flowers").select("id").limit(1)
 
-        if (error) throw error
-
-        // Add the sender's avatar to the new flower
-        const newFlower: VirtualFlower = {
-          ...data,
-          sender_avatar: user.profile?.avatar_url || null,
-          sender_id: user.id,
-        }
-
-        setVirtualFlowers((prev) => [newFlower, ...prev])
-
-        // Redirect to PayPal
-        window.location.href = "https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA"
-      } catch (error) {
-        console.error("Error sending virtual flower:", error)
-        setError("Failed to send virtual flower. Please try again.")
+      if (tableCheckError) {
+        console.error("Error checking virtual_flowers table:", tableCheckError.message)
+        throw new Error("Could not access virtual flowers. The feature may not be available.")
       }
+
+      const { data, error } = await supabase
+        .from("virtual_flowers")
+        .insert({
+          memorial_id: memorial.id,
+          sender_name: senderName,
+          sender_id: user.id,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error("Error inserting virtual flower:", error.message)
+        throw error
+      }
+
+      // Add the sender's avatar to the new flower
+      const newFlower: VirtualFlower = {
+        ...data,
+        sender_avatar: user.profile?.avatar_url || null,
+        sender_id: user.id,
+      }
+
+      setVirtualFlowers((prev) => [newFlower, ...prev])
+
+      // Redirect to PayPal
+      window.location.href = "https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA"
     } catch (err) {
       console.error("Error sending virtual flower:", err)
       setError("Failed to send virtual flower. Please try again.")
@@ -480,27 +510,31 @@ export default function MemorialPage() {
                     </Button>
                   )}
                   <div className="space-y-4">
-                    {virtualFlowers.map((flower) => (
-                      <div key={flower.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <div className="h-8 w-8 rounded-full overflow-hidden">
-                          <CustomAvatar
-                            user={{
-                              id: flower.sender_id || "",
-                              username: flower.sender_name,
-                              avatar_url: flower.sender_avatar,
-                              email: "",
-                              bio: null,
-                              created_at: "",
-                            }}
-                            size={32}
-                          />
+                    {virtualFlowers.length > 0 ? (
+                      virtualFlowers.map((flower) => (
+                        <div key={flower.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          <div className="h-8 w-8 rounded-full overflow-hidden">
+                            <CustomAvatar
+                              user={{
+                                id: flower.sender_id || "",
+                                username: flower.sender_name,
+                                avatar_url: flower.sender_avatar,
+                                email: "",
+                                bio: null,
+                                created_at: "",
+                              }}
+                              size={32}
+                            />
+                          </div>
+                          <div className="text-sm">
+                            <span className="font-medium">{flower.sender_name}</span> sent a virtual flower on{" "}
+                            <span className="text-gray-600">{new Date(flower.created_at).toLocaleDateString()}</span>
+                          </div>
                         </div>
-                        <div className="text-sm">
-                          <span className="font-medium">{flower.sender_name}</span> sent a virtual flower on{" "}
-                          <span className="text-gray-600">{new Date(flower.created_at).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-gray-500">No virtual flowers yet. Be the first to send one!</p>
+                    )}
                   </div>
                 </div>
 
@@ -509,17 +543,21 @@ export default function MemorialPage() {
                   <h2 className="text-2xl font-semibold mb-4 text-black">Memories</h2>
                   {memorial && <AddMemoryForm memorialId={memorial.id} onMemoryAdded={handleNewMemory} />}
                   <div className="mt-6">
-                    {memories.map((memory, index) => (
-                      <MemoryCard
-                        key={index}
-                        memoryId={index.toString()}
-                        memorialId={memorial?.id || ""}
-                        memory={memory}
-                        pageName={memorial?.name || pageName}
-                        currentUser={currentUserForMemoryCard}
-                        isCreator={isCurrentUserCreator}
-                      />
-                    ))}
+                    {memories.length > 0 ? (
+                      memories.map((memory, index) => (
+                        <MemoryCard
+                          key={index}
+                          memoryId={index.toString()}
+                          memorialId={memorial?.id || ""}
+                          memory={memory}
+                          pageName={memorial?.name || pageName}
+                          currentUser={currentUserForMemoryCard}
+                          isCreator={isCurrentUserCreator}
+                        />
+                      ))
+                    ) : (
+                      <p className="text-gray-500">No memories shared yet. Share your first memory above.</p>
+                    )}
                   </div>
                 </div>
               </div>

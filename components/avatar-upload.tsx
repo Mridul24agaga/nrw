@@ -2,13 +2,12 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Pencil, Loader2 } from "lucide-react"
+import { Pencil, Loader2, CheckCircle, XCircle } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { toast } from "sonner"
 
 interface AvatarUploadProps {
   userId: string
@@ -19,11 +18,25 @@ interface AvatarUploadProps {
 export function AvatarUpload({ userId, avatarUrl, username }: AvatarUploadProps) {
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
+  const [notification, setNotification] = useState<{
+    type: "success" | "error" | null
+    message: string
+  }>({ type: null, message: "" })
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClientComponentClient()
 
   // Get the first letter of username for avatar fallback
   const avatarFallback = (username || "?").charAt(0).toUpperCase()
+
+  // Clear notification after 3 seconds
+  useEffect(() => {
+    if (notification.type) {
+      const timer = setTimeout(() => {
+        setNotification({ type: null, message: "" })
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [notification])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -51,11 +64,11 @@ export function AvatarUpload({ userId, avatarUrl, username }: AvatarUploadProps)
 
       if (updateError) throw updateError
 
-      toast.success("Avatar updated successfully")
+      setNotification({ type: "success", message: "Avatar updated successfully" })
       router.refresh()
     } catch (error) {
       console.error("Error uploading avatar:", error)
-      toast.error("Failed to update avatar")
+      setNotification({ type: "error", message: "Failed to update avatar" })
     } finally {
       setIsUploading(false)
       // Reset the file input
@@ -99,6 +112,17 @@ export function AvatarUpload({ userId, avatarUrl, username }: AvatarUploadProps)
       </div>
 
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+
+      {notification.type && (
+        <div
+          className={`absolute -bottom-12 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-md text-sm flex items-center gap-1.5 ${
+            notification.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+          }`}
+        >
+          {notification.type === "success" ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+          {notification.message}
+        </div>
+      )}
     </div>
   )
 }
