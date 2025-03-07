@@ -18,7 +18,7 @@ export function AvatarUploadOverlay() {
     const file = inputFileRef.current.files[0];
 
     try {
-      const response = await fetch(`/api/avatar/upload?filename=${file.name}`, {
+      const response = await fetch(`/api/upload?filename=${file.name}`, {
         method: "POST",
         body: file,
       });
