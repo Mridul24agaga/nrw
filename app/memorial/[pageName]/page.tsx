@@ -254,44 +254,74 @@ export default function MemorialPage() {
   }, [pageName, supabase])
 
   const handleSendVirtualFlower = async () => {
-    if (!user || !memorial) return
+    if (!user || !memorial) {
+      console.error("Cannot send flower: User or memorial is null")
+      return
+    }
 
     setIsSendingFlower(true)
     try {
       const senderName = user.profile?.full_name || user.profile?.username || user.email || "Anonymous"
 
-      // Check if virtual_flowers table exists
-      try {
-        const { data, error } = await supabase
-          .from("virtual_flowers")
-          .insert({
-            memorial_id: memorial.id,
-            sender_name: senderName,
-            sender_id: user.id,
-          })
-          .select()
-          .single()
+      console.log("Attempting to send flower for:", {
+        memorial_id: memorial.id,
+        sender_name: senderName,
+        sender_id: user.id,
+      })
 
-        if (error) throw error
+      // First check if the table exists by doing a simple select
+      const { error: checkError } = await supabase.from("virtual_flowers").select("id").limit(1)
 
-        // Add the sender's avatar to the new flower
-        const newFlower: VirtualFlower = {
-          ...data,
-          sender_avatar: user.profile?.avatar_url || null,
-          sender_id: user.id,
-        }
-
-        setVirtualFlowers((prev) => [newFlower, ...prev])
-
-        // Redirect to PayPal
-        window.location.href = "https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA"
-      } catch (error) {
-        console.error("Error sending virtual flower:", error)
-        setError("Failed to send virtual flower. Please try again.")
+      if (checkError) {
+        console.error("Error checking virtual_flowers table:", checkError)
+        throw new Error(`Table check failed: ${checkError.message}`)
       }
+
+      // Insert the flower record
+      const { data, error } = await supabase
+        .from("virtual_flowers")
+        .insert({
+          memorial_id: memorial.id,
+          sender_name: senderName,
+          sender_id: user.id,
+        })
+        .select()
+
+      if (error) {
+        console.error("Supabase insert error:", error)
+        throw new Error(`Failed to insert flower: ${error.message}`)
+      }
+
+      if (!data || data.length === 0) {
+        console.error("No data returned from insert")
+        throw new Error("No data returned from insert operation")
+      }
+
+      console.log("Successfully inserted flower:", data[0])
+
+      // Add the sender's avatar to the new flower
+      const newFlower: VirtualFlower = {
+        ...data[0],
+        sender_avatar: user.profile?.avatar_url || null,
+        sender_id: user.id,
+      }
+
+      // Update the UI with the new flower
+      setVirtualFlowers((prev) => [newFlower, ...prev])
+
+      // Only redirect to PayPal after successful database operation
+      console.log("Redirecting to PayPal...")
+      window.location.href = "https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA"
     } catch (err) {
+      // Log the full error details
       console.error("Error sending virtual flower:", err)
-      setError("Failed to send virtual flower. Please try again.")
+
+      // Set a more descriptive error message
+      setError(
+        err instanceof Error
+          ? `Failed to send virtual flower: ${err.message}`
+          : "Failed to send virtual flower. Please try again.",
+      )
     } finally {
       setIsSendingFlower(false)
     }

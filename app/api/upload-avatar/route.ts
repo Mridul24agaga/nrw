@@ -1,8 +1,5 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClient } from "@/utils/server"
 import { NextResponse } from "next/server"
-import { writeFile, mkdir } from "fs/promises"
-import path from "path"
 
 export async function POST(request: Request) {
   try {
@@ -14,8 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing file or userId" }, { status: 400 })
     }
 
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = await createClient()
 
     // Verify the user is authenticated
     const {
@@ -34,19 +30,23 @@ export async function POST(request: Request) {
     const fileExt = file.name.split(".").pop()
     const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`
 
-    // Ensure the uploads directory exists
-    const uploadsDir = path.join(process.cwd(), "public/uploads")
-    await mkdir(uploadsDir, { recursive: true })
+    // Upload file to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("avatars") // Make sure this bucket exists in your Supabase project
+      .upload(fileName, buffer, {
+        contentType: file.type,
+        upsert: true,
+      })
 
-    // Save the file to the public/uploads directory
-    const filePath = path.join(uploadsDir, fileName)
-    await writeFile(filePath, buffer)
+    if (uploadError) {
+      console.error("Error uploading to Supabase Storage:", uploadError)
+      return NextResponse.json({ error: `Failed to upload file: ${uploadError.message}` }, { status: 500 })
+    }
 
-    // The public URL will be /uploads/filename.ext
-    const publicUrl = `/uploads/${fileName}`
+    // Get the public URL
+    const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(fileName)
 
-    console.log("Saved file locally:", filePath)
-    console.log("Public URL:", publicUrl)
+    const publicUrl = publicUrlData.publicUrl
 
     // Update user's avatar_url in the database
     const { error: updateError } = await supabase.from("users").update({ avatar_url: publicUrl }).eq("id", userId)
