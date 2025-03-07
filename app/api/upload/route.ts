@@ -3,8 +3,7 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-// Handle POST requests for file uploads
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<NextResponse> {
   try {
     // Get the user session
     const cookieStore = cookies();
@@ -18,19 +17,22 @@ export async function POST(request: Request) {
     }
 
     const userId = session.user.id;
+    const { searchParams } = new URL(request.url);
+    const filename = searchParams.get("filename");
 
-    // Parse the form data
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
-
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    if (!filename) {
+      return NextResponse.json({ error: "Filename is required" }, { status: 400 });
     }
 
-    // Upload to Vercel Blob
-    const blob = await put(`avatars/${userId}/${file.name}`, file, {
-      access: "public", // Makes the file publicly accessible
-      token: process.env.BLOB_READ_WRITE_TOKEN, // Optional if deployed in same Vercel project
+    // Check if request.body is null
+    if (!request.body) {
+      return NextResponse.json({ error: "Request body is missing" }, { status: 400 });
+    }
+
+    // Now TypeScript knows request.body is not null
+    const blob = await put(`avatars/${userId}/${filename}`, request.body, {
+      access: "public",
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
     // Update Supabase with the new avatar URL
@@ -47,7 +49,7 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ uploadedBy: userId, url: blob.url });
+    return NextResponse.json(blob);
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json(
@@ -55,9 +57,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
-
-// Handle GET requests (optional, for debugging)
-export async function GET() {
-  return NextResponse.json({ message: "Use POST to upload files" });
 }

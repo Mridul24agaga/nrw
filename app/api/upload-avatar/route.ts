@@ -1,4 +1,5 @@
-import { createClient } from "@/utils/server"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
@@ -11,7 +12,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing file or userId" }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
     // Verify the user is authenticated
     const {
