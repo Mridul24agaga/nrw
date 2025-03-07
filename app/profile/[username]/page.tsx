@@ -1,5 +1,4 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { createClient } from "@/utils/server";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Sidebar from "@/components/sidebar";
@@ -9,15 +8,15 @@ import { getFollowerCount, getFollowingCount, getFollowingStatus } from "@/actio
 import type { User } from "@/lib/types";
 import { AvatarUploadOverlay } from "@/components/avatar-upload-overlay";
 
-type PageProps = {
-  params: { username: string };
-};
+export default async function ProfilePage({
+  params,
+}: {
+  params: Promise<{ username: string }>;
+}) {
+  const resolvedParams = await params;
+  const username = resolvedParams.username;
 
-export default async function ProfilePage({ params }: PageProps) {
-  const username = params.username;
-
-  const cookieStore = cookies();
-  const supabase = createServerComponentClient({ cookies: () => cookieStore });
+  const supabase = await createClient();
 
   const { data: sessionData } = await supabase.auth.getSession();
   const session = sessionData?.session;
