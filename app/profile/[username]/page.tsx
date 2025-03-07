@@ -1,4 +1,3 @@
-import { createClient } from "@/utils/server";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Sidebar from "@/components/sidebar";
@@ -8,39 +7,59 @@ import { getFollowerCount, getFollowingCount, getFollowingStatus } from "@/actio
 import type { User } from "@/lib/types";
 import { AvatarUploadOverlay } from "@/components/avatar-upload-overlay";
 import { cookies } from "next/headers";
+import { createClient } from "@/utils/server";
 
+// Define the page component with Promise-based params
 export default async function ProfilePage({
   params,
 }: {
-  params: { username: string };
+  params: Promise<{ username: string }>;
 }) {
   try {
-    const username = params.username;
+    // Await the params Promise to get the username
+    const resolvedParams = await params;
+    const username = resolvedParams.username;
     
-    // Use a read-only approach for Supabase
-    const cookieStore = cookies();
+    // Create Supabase client
     const supabase = await createClient();
     
-    // Get session without modifying cookies
-    const { data: sessionData } = await supabase.auth.getSession();
-    const session = sessionData?.session;
+    // Get session data
+    let session = null;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      session = sessionData?.session;
+    } catch (sessionError) {
+      console.error("Error fetching session:", sessionError);
+      // Continue without session data
+    }
     
     // Fetch user data
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select(`
-        *,
-        posts (
-          id,
-          content,
-          user_id,
-          created_at,
-          last_updated,
-          user:users!posts_user_id_fkey (id, username, avatar_url)
-        )
-      `)
-      .eq("username", username)
-      .single();
+    let userData = null;
+    let userError = null;
+    
+    try {
+      const result = await supabase
+        .from("users")
+        .select(`
+          *,
+          posts (
+            id,
+            content,
+            user_id,
+            created_at,
+            last_updated,
+            user:users!posts_user_id_fkey (id, username, avatar_url)
+          )
+        `)
+        .eq("username", username)
+        .single();
+      
+      userData = result.data;
+      userError = result.error;
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      userError = error;
+    }
 
     if (userError || !userData) {
       console.error("Error fetching user:", userError);
@@ -50,6 +69,7 @@ export default async function ProfilePage({
     const user = userData as User;
     const isOwnProfile = session?.user?.id === user.id;
 
+    // Process posts data
     const posts = (user.posts || []).map((post) => ({
       id: post.id,
       content: post.content,
@@ -62,7 +82,7 @@ export default async function ProfilePage({
       },
     }));
 
-    // Add error handling for additional data fetches
+    // Fetch additional data with error handling
     let followersCount = 0;
     let followingCount = 0;
     let followingStatus = { isFollowing: false };
@@ -81,6 +101,7 @@ export default async function ProfilePage({
     const timestamp = Date.now();
     const avatarUrlWithCache = user.avatar_url ? `${user.avatar_url}?t=${timestamp}` : null;
 
+    // Render the profile page
     return (
       <div className="min-h-screen bg-gray-50 text-black">
         <div className="mx-auto max-w-[1400px] px-4 py-6">
@@ -151,7 +172,7 @@ export default async function ProfilePage({
       </div>
     );
   } catch (error) {
-    // Add comprehensive error handling
+    // Global error handling
     console.error("Unhandled error in ProfilePage:", error);
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
