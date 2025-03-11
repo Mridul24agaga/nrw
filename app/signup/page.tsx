@@ -7,7 +7,6 @@ import Image from "next/image"
 import Link from "next/link"
 import { Eye, EyeOff } from "lucide-react"
 import { generateUsername } from "@/lib/utils"
-import { setCookie, getCookie } from "cookies-next"
 
 export default function SignUp() {
   const [email, setEmail] = useState("")
@@ -23,28 +22,6 @@ export default function SignUp() {
 
   useEffect(() => {
     setMounted(true)
-
-    // Get the session and store it in cookies
-    const getSession = async () => {
-      const { data, error } = await supabase.auth.getSession()
-      if (data?.session) {
-        setCookie("sb-auth-token", JSON.stringify(data.session))
-      }
-    }
-    getSession()
-
-    // Listen for auth state changes and update cookies
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setCookie("sb-auth-token", JSON.stringify(session))
-      } else {
-        setCookie("sb-auth-token", "", { maxAge: -1 }) // Delete cookie on logout
-      }
-    })
-
-    return () => {
-      authListener?.subscription?.unsubscribe()
-    }
   }, [])
 
   if (!mounted) {
@@ -77,9 +54,6 @@ export default function SignUp() {
       if (authError) throw authError
 
       if (authData.user) {
-        // Store session in cookies
-        setCookie("sb-auth-token", JSON.stringify(authData.session))
-
         const { error: profileError } = await supabase
           .from("profiles")
           .insert({
@@ -222,3 +196,4 @@ export default function SignUp() {
     </div>
   )
 }
+
