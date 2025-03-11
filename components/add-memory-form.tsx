@@ -7,6 +7,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { ImageIcon, X, Upload } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { upload } from "@vercel/blob/client"
 
 interface AddMemoryFormProps {
   memorialId: string
@@ -17,8 +18,8 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
   const [content, setContent] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
@@ -81,7 +82,7 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
     }
     setSelectedFile(null)
     setPreviewUrl(null)
-    setImageUrl(null)
+    setUploadProgress(0)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -91,25 +92,36 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
     if (!selectedFile) return null
 
     setIsUploading(true)
-    try {
-      const formData = new FormData()
-      formData.append("file", selectedFile)
+    setUploadProgress(0)
 
-      const response = await fetch("/api/upload-memory-image", {
-        method: "POST",
-        body: formData,
+    try {
+      // Generate a clean filename with timestamp to avoid collisions
+      const filename = selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, "-")
+      const timestamp = Date.now()
+      const pathname = `memories/${memorialId}/${timestamp}-${filename}`
+
+      // Create a custom XMLHttpRequest to track upload progress
+      const xhr = new XMLHttpRequest()
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100)
+          setUploadProgress(progress)
+          console.log(`Upload progress: ${progress}%`)
+        }
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to upload image")
-      }
+      // Upload to Vercel Blob
+      const result = await upload(pathname, selectedFile, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+        multipart: selectedFile.size > 1024 * 1024, // Use multipart for files larger than 1MB
+      })
 
-      const result = await response.json()
-      return result.imageUrl
+      console.log("Memory image upload successful:", result)
+      return result.url
     } catch (error) {
-      console.error("Error uploading image:", error)
-      setError(error instanceof Error ? error.message : "Failed to upload image")
+      console.error("Error uploading memory image:", error)
+      setError(typeof error === "string" ? error : "Failed to upload image")
       return null
     } finally {
       setIsUploading(false)
@@ -194,10 +206,7 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
       }
       setSelectedFile(null)
       setPreviewUrl(null)
-      setImageUrl(null)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
+      setUploadProgress(0)
     } catch (error) {
       console.error("Error adding memory:", error)
       setError(error instanceof Error ? error.message : "Failed to add memory")
@@ -241,6 +250,16 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
                 >
                   <X className="w-4 h-4" />
                 </button>
+
+                {/* Upload progress indicator */}
+                {isUploading && uploadProgress > 0 && (
+                  <div className="absolute bottom-2 left-2 right-2 bg-white bg-opacity-75 p-2 rounded">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-green-500 h-2 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1 text-right">{uploadProgress}%</p>
+                  </div>
+                )}
               </div>
             )}
 
