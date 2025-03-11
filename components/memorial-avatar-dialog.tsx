@@ -3,238 +3,206 @@
 import type React from "react"
 
 import { useState, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import Image from "next/image"
-import { Loader2, Upload, Trash, X } from "lucide-react"
+import { Upload, X } from "lucide-react"
 
 interface MemorialAvatarDialogProps {
+  children: React.ReactNode
   memorialId: string
   avatarUrl: string | null
   memorialName: string
-  children: React.ReactNode
 }
 
-export function MemorialAvatarDialog({ memorialId, avatarUrl, memorialName, children }: MemorialAvatarDialogProps) {
-  const router = useRouter()
-  const [isUploading, setIsUploading] = useState(false)
+export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorialName }: MemorialAvatarDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(avatarUrl)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const handleFileSelect = () => {
-    fileInputRef.current?.click()
-  }
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploadSuccess, setUploadSuccess] = useState(false)
+  const inputFileRef = useRef<HTMLInputElement>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Create a preview URL
-    const objectUrl = URL.createObjectURL(file)
-    setPreviewUrl(objectUrl)
-    setSelectedFile(file)
-    setErrorMessage(null)
+    // Reset states
+    setUploadError(null)
+    setUploadSuccess(false)
 
-    // Reset the file input
-    e.target.value = ""
-  }
-
-  const handleSaveAvatar = async () => {
-    if (!selectedFile) {
-      setErrorMessage("Please select an image first")
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please select an image file")
       return
     }
 
-    try {
-      setIsUploading(true)
-      setErrorMessage(null)
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Image size should be less than 5MB")
+      return
+    }
 
-      // Create a FormData object to send the file
+    setSelectedFile(file)
+
+    // Create preview URL
+    const objectUrl = URL.createObjectURL(file)
+    setPreviewUrl(objectUrl)
+  }
+
+  const handleUpload = async () => {
+    if (!selectedFile || !memorialId) return
+
+    setIsUploading(true)
+    setUploadError(null)
+
+    try {
+      // Create FormData
       const formData = new FormData()
       formData.append("file", selectedFile)
       formData.append("memorialId", memorialId)
 
-      // Use the API route to handle the upload
-      const response = await fetch("/api/upload-memorial-avatar", {
+      // Upload to API route
+      const response = await fetch("/api/memorial-avatar", {
         method: "POST",
         body: formData,
       })
 
+      // Check if response is OK
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to upload memorial avatar")
+        // Try to get error as JSON first
+        let errorMessage = "Failed to upload avatar"
+
+        try {
+          const contentType = response.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await response.json()
+            errorMessage = errorData.error || errorMessage
+          } else {
+            // If not JSON, get text
+            const errorText = await response.text()
+            console.error("Non-JSON error response:", errorText)
+          }
+        } catch (parseError) {
+          console.error("Error parsing error response:", parseError)
+        }
+
+        throw new Error(errorMessage)
       }
 
-      setIsOpen(false)
-      router.refresh()
+      // Check content type before parsing as JSON
+      const contentType = response.headers.get("content-type")
+      if (!contentType || !contentType.includes("application/json")) {
+        const textResponse = await response.text()
+        console.error("Unexpected response type:", contentType, "Response:", textResponse)
+        throw new Error("Server returned an invalid response format")
+      }
+
+      const result = await response.json()
+
+      // Update preview with the new URL from Vercel Blob
+      setPreviewUrl(result.url)
+      setUploadSuccess(true)
+
+      // Close dialog after a short delay
+      setTimeout(() => {
+        setIsOpen(false)
+        // Force page refresh to show the new avatar
+        window.location.reload()
+      }, 1500)
     } catch (error) {
       console.error("Error uploading memorial avatar:", error)
-      setErrorMessage(error instanceof Error ? error.message : "Failed to update memorial avatar")
+      setUploadError(error instanceof Error ? error.message : "Failed to upload avatar")
     } finally {
       setIsUploading(false)
     }
   }
 
-  const handleRemoveAvatar = async () => {
-    try {
-      setIsUploading(true)
-      setErrorMessage(null)
-
-      // Use the API route to handle avatar removal
-      const response = await fetch("/api/remove-memorial-avatar", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ memorialId }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to remove memorial avatar")
-      }
-
-      setPreviewUrl(null)
-      setSelectedFile(null)
-      setIsOpen(false)
-      router.refresh()
-    } catch (error) {
-      console.error("Error removing memorial avatar:", error)
-      setErrorMessage(error instanceof Error ? error.message : "Failed to remove memorial avatar")
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  const openDialog = () => setIsOpen(true)
-  const closeDialog = () => {
-    setIsOpen(false)
-    // Reset preview to current avatar when dialog closes without saving
-    setPreviewUrl(avatarUrl)
+  const handleRemoveFile = () => {
     setSelectedFile(null)
-    setErrorMessage(null)
+    setPreviewUrl(avatarUrl)
+    if (inputFileRef.current) {
+      inputFileRef.current.value = ""
+    }
   }
 
-  // If dialog is not open, just render the children (trigger)
-  if (!isOpen) {
-    return <div onClick={openDialog}>{children}</div>
-  }
-
-  // Render the dialog when open
   return (
-    <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={closeDialog}>
-        {/* Dialog */}
-        <div
-          className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b">
-            <h2 className="text-xl font-semibold">Edit Memorial Picture</h2>
-            <button onClick={closeDialog} className="text-gray-500 hover:text-gray-700 focus:outline-none">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <div className="cursor-pointer">{children}</div>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Update Memorial Avatar</DialogTitle>
+        </DialogHeader>
 
-          {/* Content */}
-          <div className="flex flex-col items-center justify-center gap-6 p-6">
-            <div className="relative">
-              {selectedFile && previewUrl ? (
-                <div className="h-32 w-32 relative">
-                  <Image
-                    src={previewUrl || "/placeholder.svg"}
-                    alt="Memorial Preview"
-                    width={128}
-                    height={128}
-                    className="rounded-full object-cover"
-                  />
-                </div>
+        <div className="space-y-4">
+          {/* Preview */}
+          <div className="flex justify-center">
+            <div className="relative h-32 w-32 rounded-full overflow-hidden border-2 border-gray-200">
+              {previewUrl ? (
+                <Image src={previewUrl || "/placeholder.svg"} alt={memorialName} fill className="object-cover" />
               ) : (
-                <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-                  {previewUrl ? (
-                    <Image
-                      src={previewUrl || "/placeholder.svg"}
-                      alt={memorialName}
-                      width={128}
-                      height={128}
-                      className="object-cover"
-                    />
-                  ) : (
-                    <span className="text-4xl text-gray-400">{memorialName[0]?.toUpperCase()}</span>
-                  )}
-                </div>
-              )}
-
-              {isUploading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
-                  <Loader2 className="h-8 w-8 animate-spin text-white" />
+                <div className="h-full w-full flex items-center justify-center bg-gray-100">
+                  <span className="text-4xl text-gray-400">{memorialName[0]?.toUpperCase()}</span>
                 </div>
               )}
             </div>
+          </div>
 
-            {errorMessage && <div className="text-red-500 text-sm text-center">{errorMessage}</div>}
+          {/* File input */}
+          <div className="flex flex-col items-center gap-2">
+            <input
+              type="file"
+              ref={inputFileRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              className="hidden"
+              id="memorial-avatar-upload"
+            />
 
-            <div className="flex gap-4">
-              <button
+            <div className="flex gap-2">
+              <Button
                 type="button"
-                onClick={handleFileSelect}
+                variant="outline"
+                onClick={() => inputFileRef.current?.click()}
                 disabled={isUploading}
-                className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
               >
                 <Upload className="mr-2 h-4 w-4" />
-                Upload Memorial Image
-              </button>
+                Select Image
+              </Button>
 
-              {avatarUrl && (
-                <button
-                  type="button"
-                  onClick={handleRemoveAvatar}
-                  disabled={isUploading}
-                  className="flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
-                >
-                  <Trash className="mr-2 h-4 w-4" />
+              {selectedFile && (
+                <Button type="button" variant="outline" onClick={handleRemoveFile} disabled={isUploading}>
+                  <X className="mr-2 h-4 w-4" />
                   Remove
-                </button>
+                </Button>
               )}
             </div>
 
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+            {selectedFile && (
+              <p className="text-sm text-gray-500">
+                {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+              </p>
+            )}
           </div>
 
-          {/* Footer */}
-          <div className="flex justify-end gap-3 p-4 border-t">
-            <button
-              type="button"
-              onClick={closeDialog}
-              disabled={isUploading}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-            >
-              Cancel
-            </button>
+          {/* Error message */}
+          {uploadError && <div className="text-sm text-red-500 text-center">{uploadError}</div>}
 
-            <button
-              type="button"
-              onClick={handleSaveAvatar}
-              disabled={isUploading || !selectedFile}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
-                  Uploading...
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </button>
+          {/* Success message */}
+          {uploadSuccess && <div className="text-sm text-green-500 text-center">Avatar uploaded successfully!</div>}
+
+          {/* Upload button */}
+          <div className="flex justify-end">
+            <Button type="button" onClick={handleUpload} disabled={!selectedFile || isUploading}>
+              {isUploading ? "Uploading..." : "Upload Avatar"}
+            </Button>
           </div>
         </div>
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   )
 }
 

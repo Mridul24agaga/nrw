@@ -1,71 +1,74 @@
-"use client";
-import type { PutBlobResult } from "@vercel/blob";
-import { useState, useRef } from "react";
+"use client"
+
+import type React from "react"
+
+import { useState, useRef } from "react"
+import { uploadAvatar } from "@/actions/avatar-actions"
 
 export function AvatarUploadOverlay() {
-  const inputFileRef = useRef<HTMLInputElement>(null);
-  const [blob, setBlob] = useState<PutBlobResult | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false)
+  const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return
 
-    if (!inputFileRef.current?.files) {
-      setUploadError("No file selected");
-      return;
-    }
-
-    const file = inputFileRef.current.files[0];
+    const file = e.target.files[0]
+    setIsUploading(true)
+    setMessage(null)
 
     try {
-      const response = await fetch(`/api/upload?filename=${file.name}`, {
-        method: "POST",
-        body: file,
-      });
+      const formData = new FormData()
+      formData.append("avatar", file)
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Upload failed: ${errorText}`);
+      const result = await uploadAvatar(formData)
+
+      if (result.error) {
+        setMessage({ text: result.error, type: "error" })
+      } else {
+        setMessage({ text: "Profile picture updated successfully", type: "success" })
+        // Clear the message after 3 seconds
+        setTimeout(() => setMessage(null), 3000)
       }
-
-      const newBlob = (await response.json()) as PutBlobResult;
-      setBlob(newBlob);
-      setUploadError(null);
-      window.location.reload(); // Refresh to show new avatar
     } catch (error) {
-      console.error("Client-side upload error:", error);
-      setUploadError((error as Error).message);
+      setMessage({ text: "Failed to upload image", type: "error" })
+    } finally {
+      setIsUploading(false)
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
     }
-  };
+  }
 
   return (
-    <div className="flex flex-col items-center gap-4 p-4 bg-white rounded-lg shadow-md">
-      <form onSubmit={handleUpload} className="flex flex-col items-center gap-2">
-        <input
-          name="file"
-          ref={inputFileRef}
-          type="file"
-          accept="image/*"
-          required
-          className="text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-white hover:file:bg-gray-600 cursor-pointer"
-        />
-        <button
-          type="submit"
-          className="px-6 py-2 bg-blue-600 text-white font-medium rounded-full shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors duration-200 w-full sm:w-auto"
+    <div className="relative">
+      <button
+        className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={isUploading}
+      >
+        {isUploading ? "Uploading..." : "Change Photo"}
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+        disabled={isUploading}
+      />
+
+      {message && (
+        <div
+          className={`mt-2 px-3 py-1 text-sm rounded ${
+            message.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+          }`}
         >
-          Upload
-        </button>
-      </form>
-      {uploadError && (
-        <p className="text-red-500 text-sm mt-2 text-center">{uploadError}</p>
-      )}
-      {blob && (
-        <div className="mt-4 text-center">
-          <p className="text-gray-700 text-sm">
-            Uploaded: <a href={blob.url} className="underline hover:text-blue-300">{blob.url}</a>
-          </p>
+          {message.text}
         </div>
       )}
     </div>
-  );
+  )
 }
+

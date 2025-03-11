@@ -1,8 +1,9 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
+// app/api/upload-avatar/route.ts
+import { NextRequest, NextResponse } from "next/server"
+import { put } from "@vercel/blob"
+import { createClient } from "@supabase/supabase-js"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -12,60 +13,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing file or userId" }, { status: 400 })
     }
 
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-
-    // Verify the user is authenticated
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session || session.user.id !== userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Convert the file to a Buffer
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-
-    // Create a unique filename
-    const fileExt = file.name.split(".").pop()
-    const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`
-
-    // Upload file to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("avatars") // Make sure this bucket exists in your Supabase project
-      .upload(fileName, buffer, {
-        contentType: file.type,
-        upsert: true,
-      })
-
-    if (uploadError) {
-      console.error("Error uploading to Supabase Storage:", uploadError)
-      return NextResponse.json({ error: `Failed to upload file: ${uploadError.message}` }, { status: 500 })
-    }
-
-    // Get the public URL
-    const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(fileName)
-
-    const publicUrl = publicUrlData.publicUrl
-
-    // Update user's avatar_url in the database
-    const { error: updateError } = await supabase.from("users").update({ avatar_url: publicUrl }).eq("id", userId)
-
-    if (updateError) {
-      return NextResponse.json({ error: `Failed to update user profile: ${updateError.message}` }, { status: 500 })
-    }
-
-    // Return success response
-    return NextResponse.json({
-      success: true,
-      url: publicUrl,
-      message: "Avatar updated successfully",
+    // Upload to Vercel Blob
+    const blob = await put(`memories/${userId}/${file.name}`, file, {
+      access: "public",
+      token: process.env.BLOB_READ_WRITE_TOKEN, // Optional, depending on your setup
     })
+
+    // Initialize Supabase client (use service role key for server-side operations)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    // Update the user's avatar_url in Supabase
+    const { error } = await supabase
+      .from("users")
+      .update({ avatar_url: blob.url })
+      .eq("id", userId)
+
+    if (error) {
+      throw new Error(`Supabase update failed: ${error.message}`)
+    }
+
+    return NextResponse.json({ url: blob.url }, { status: 200 })
   } catch (error) {
-    console.error("Error handling upload:", error)
-    return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 })
+    console.error("Error in /api/upload-avatar:", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to upload avatar" },
+      { status: 500 }
+    )
   }
 }
-

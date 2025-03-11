@@ -33,6 +33,7 @@ export async function POST(request: Request) {
       .single()
 
     if (memorialError || !memorial) {
+      console.error("Memorial not found error:", memorialError)
       return NextResponse.json({ error: "Memorial not found" }, { status: 404 })
     }
 
@@ -44,33 +45,49 @@ export async function POST(request: Request) {
     const fileExt = file.name.split(".").pop()
     const fileName = `memorial-${memorialId}-${Date.now()}.${fileExt}`
 
-    // Upload file to Vercel Blob
-    const blob = await put(fileName, file, {
-      access: "public",
-      contentType: file.type,
-    })
+    try {
+      // Upload file to Vercel Blob
+      const blob = await put(fileName, file, {
+        access: "public",
+        contentType: file.type,
+      })
 
-    console.log("Uploaded memorial avatar to Vercel Blob:", blob.url)
+      console.log("Uploaded memorial avatar to Vercel Blob:", blob.url)
 
-    // Update memorial's avatar_url in the database with the Blob URL
-    const { error: updateError } = await supabase
-      .from("memorialpages212515")
-      .update({ memorial_avatar_url: blob.url })
-      .eq("id", memorialId)
+      // Update memorial's avatar_url in the database with the Blob URL
+      const { error: updateError } = await supabase
+        .from("memorialpages212515")
+        .update({ memorial_avatar_url: blob.url })
+        .eq("id", memorialId)
 
-    if (updateError) {
-      return NextResponse.json({ error: `Failed to update memorial: ${updateError.message}` }, { status: 500 })
+      if (updateError) {
+        console.error("Database update error:", updateError)
+        return NextResponse.json({ error: `Failed to update memorial: ${updateError.message}` }, { status: 500 })
+      }
+
+      // Return success response
+      return NextResponse.json({
+        success: true,
+        url: blob.url,
+        message: "Memorial avatar updated successfully",
+      })
+    } catch (blobError) {
+      console.error("Vercel Blob upload error:", blobError)
+      return NextResponse.json(
+        {
+          error: `Failed to upload to Vercel Blob: ${blobError instanceof Error ? blobError.message : "Unknown error"}`,
+        },
+        { status: 500 },
+      )
     }
-
-    // Return success response
-    return NextResponse.json({
-      success: true,
-      url: blob.url,
-      message: "Memorial avatar updated successfully",
-    })
   } catch (error) {
     console.error("Error handling memorial avatar upload:", error)
-    return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: `An unexpected error occurred: ${error instanceof Error ? error.message : "Unknown error"}`,
+      },
+      { status: 500 },
+    )
   }
 }
 
