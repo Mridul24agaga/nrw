@@ -1,119 +1,67 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
-import { Search, Plus, User, LogOut } from "lucide-react"
+import {
+  Search,
+  Plus,
+  User,
+  LogOut,
+  Home,
+  Bookmark,
+  Clock,
+  Grid,
+  BookOpen,
+  MessageCircle,
+  HelpCircle,
+  Scale,
+} from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
 import { useDebounce } from "@/hooks/use-debounce"
 
-interface MemorialPage {
-  id: string
-  name: string
-  page_name: string
-}
-
-interface Profile {
-  username: string
-  display_name: string
-  avatar_url?: string
-}
-
-interface SearchResult {
-  id: string
-  username: string
-  avatar_url: string | null
-  follower_count: number
-}
-
 export default function Header() {
-  const [searchQuery, setSearchQuery] = useState("")
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [memorialPages, setMemorialPages] = useState<MemorialPage[]>([])
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
-  const [isSearching, setIsSearching] = useState(false)
-  const [noResultsFound, setNoResultsFound] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false) // Added mobile menu state
-  const supabase = createClientComponentClient()
+  const [searchQuery, setSearchQuery] = useState("")
+  const debouncedSearchQuery = useDebounce(searchQuery, 500)
+  const searchRef = useRef(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [profile, setProfile] = useState<{
+    id: string
+    username: string
+    display_name: string
+    avatar_url: string
+  } | null>(null)
+  const [memorialPages, setMemorialPages] = useState<any[]>([])
   const router = useRouter()
-  const searchRef = useRef<HTMLFormElement>(null)
-  const debouncedSearchQuery = useDebounce(searchQuery, 300)
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
-    const fetchUserAndPages = async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-
-        if (user) {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("username, display_name, avatar_url")
-            .eq("id", user.id)
-            .single()
-
-          if (profileData) {
-            setProfile(profileData)
-          }
-
-          const { data: pagesData, error: pagesError } = await supabase
-            .from("memorialpages212515")
-            .select("id, name, page_name")
-            .eq("created_by", user.id)
-
-          if (pagesError) {
-            console.error("Error fetching memorial pages:", pagesError.message)
-          } else {
-            setMemorialPages(pagesData || [])
-          }
-        }
-      } catch (error) {
-        console.error("Unexpected error in fetchUserAndPages:", error)
-      }
+    const getProfile = async () => {
+      const { data } = await supabase.from("profiles").select("*").single()
+      setProfile(data)
     }
 
-    fetchUserAndPages()
+    getProfile()
   }, [supabase])
 
   useEffect(() => {
-    const handleSearch = async () => {
-      if (debouncedSearchQuery) {
-        setIsSearching(true)
-        setNoResultsFound(false)
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, username, avatar_url, follower_count")
-          .ilike("username", `${debouncedSearchQuery}`)
-          .single()
-
-        if (error) {
-          console.error("Error searching users:", error)
-          setSearchResult(null)
-          setNoResultsFound(true)
-        } else {
-          setSearchResult(data)
-          setNoResultsFound(false)
-        }
-        setIsSearching(false)
-      } else {
-        setSearchResult(null)
-        setNoResultsFound(false)
-      }
+    const getMemorialPages = async () => {
+      const { data } = await supabase.from("memorial_pages").select("*")
+      setMemorialPages(data || [])
     }
 
-    handleSearch()
-  }, [debouncedSearchQuery, supabase])
+    getMemorialPages()
+  }, [supabase])
 
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setSearchResult(null)
-        setNoResultsFound(false)
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false)
       }
     }
 
@@ -123,33 +71,40 @@ export default function Header() {
     }
   }, [])
 
-  const handleSwitchAccount = (username: string, isMemorial = false) => {
-    setIsDropdownOpen(false)
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push("/login")
+  }
+
+  const handleSwitchAccount = async (username: string, isMemorial = false) => {
     if (isMemorial) {
       router.push(`/memorial/${username}`)
     } else {
-      router.push(`/profile/${username}`)
+      router.push(`/${username}`)
     }
-  }
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-      router.push("/login")
-    } catch (error) {
-      console.error("Error logging out:", error)
-    }
+    setIsDropdownOpen(false)
   }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+    if (debouncedSearchQuery) {
+      router.push(`/search?q=${debouncedSearchQuery}`)
     }
   }
 
+  const navigationItems = [
+    { icon: Home, label: "Home", href: "/" },
+    { icon: Bookmark, label: "Bookmarks", href: "/bookmarks" },
+    { icon: Clock, label: "Memories", href: "/memories" },
+    { icon: Grid, label: "Collage Maker", href: "/collage-maker" },
+    { icon: BookOpen, label: "Diary/ Virtual Companion", href: "/diary" },
+    { icon: MessageCircle, label: "Chat", href: "/chat" },
+    { icon: HelpCircle, label: "About Us", href: "/about" },
+    { icon: Scale, label: "Legal", href: "/legal" },
+  ]
+
   return (
-    <header className="z-50 bg-white shadow-sm">
+    <header className="z-50 bg-white shadow-sm relative">
       <div className="bg-green-500 text-white text-center py-2 text-sm">
         Mobile app coming soon! Stay tuned for updates.
       </div>
@@ -158,7 +113,11 @@ export default function Header() {
           <Image src="/memories.png" alt="Logo" width={100} height={100} className="w-auto h-8 sm:h-10" />
         </Link>
 
-        <button className="sm:hidden absolute right-4 top-4" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+        <button
+          className="sm:hidden absolute right-4 top-14"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          aria-label="Toggle menu"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -171,7 +130,9 @@ export default function Header() {
         </button>
 
         <div
-          className={`${isMobileMenuOpen ? "flex" : "hidden"} sm:flex flex-col sm:flex-row items-center w-full sm:w-auto`}
+          className={`${
+            isMobileMenuOpen ? "flex" : "hidden"
+          } sm:flex flex-col sm:flex-row items-center w-full sm:w-auto`}
         >
           <form onSubmit={handleSearch} className="relative flex-1 w-full max-w-xl mb-2 sm:mb-0" ref={searchRef}>
             <input
@@ -186,7 +147,26 @@ export default function Header() {
             </button>
           </form>
 
-          <div className="relative w-full sm:w-auto">
+          {/* Mobile Navigation Menu */}
+          <div
+            className={`sm:hidden w-full bg-white rounded-lg shadow-lg mt-2 ${isMobileMenuOpen ? "block" : "hidden"}`}
+          >
+            <nav className="flex flex-col space-y-1 p-4">
+              {navigationItems.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          <div className="relative w-full sm:w-auto" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="flex items-center justify-center w-full sm:w-auto gap-2 rounded-lg p-2 hover:bg-gray-100"
@@ -206,7 +186,7 @@ export default function Header() {
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute right-0 left-0 sm:left-auto mt-2 w-full sm:w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+              <div className="absolute right-0 left-0 sm:left-auto mt-2 w-full sm:w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-[100]">
                 <div className="px-4 py-2 text-sm text-black">Switch Account</div>
                 <div className="h-px bg-gray-200" />
                 <button

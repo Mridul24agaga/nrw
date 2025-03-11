@@ -1,46 +1,49 @@
-// app/api/upload-avatar/route.ts
-import { NextRequest, NextResponse } from "next/server"
-import { put } from "@vercel/blob"
-import { createClient } from "@supabase/supabase-js"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const formData = await request.formData()
-    const file = formData.get("file") as File
-    const userId = formData.get("userId") as string
+    const { avatarUrl, userId } = await request.json()
 
-    if (!file || !userId) {
-      return NextResponse.json({ error: "Missing file or userId" }, { status: 400 })
+    if (!avatarUrl) {
+      return NextResponse.json({ error: "Avatar URL is required" }, { status: 400 })
     }
 
-    // Upload to Vercel Blob
-    const blob = await put(`memories/${userId}/${file.name}`, file, {
-      access: "public",
-      token: process.env.BLOB_READ_WRITE_TOKEN, // Optional, depending on your setup
-    })
+    // Get the current user from the session
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-    // Initialize Supabase client (use service role key for server-side operations)
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
 
-    // Update the user's avatar_url in Supabase
-    const { error } = await supabase
-      .from("users")
-      .update({ avatar_url: blob.url })
-      .eq("id", userId)
-
-    if (error) {
-      throw new Error(`Supabase update failed: ${error.message}`)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    return NextResponse.json({ url: blob.url }, { status: 200 })
+    // Verify the user is updating their own profile
+    if (session.user.id !== userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    }
+
+    // Update user's avatar_url in the database
+    const { error: updateError } = await supabase.from("users").update({ avatar_url: avatarUrl }).eq("id", userId)
+
+    if (updateError) {
+      console.error("Database update error:", updateError)
+      return NextResponse.json({ error: `Failed to update user: ${updateError.message}` }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, avatarUrl })
   } catch (error) {
-    console.error("Error in /api/upload-avatar:", error)
+    console.error("Error handling avatar update:", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to upload avatar" },
-      { status: 500 }
+      {
+        error: `An unexpected error occurred: ${error instanceof Error ? error.message : "Unknown error"}`,
+      },
+      { status: 500 },
     )
   }
 }
+

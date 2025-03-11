@@ -1,66 +1,60 @@
 "use server"
 
+import { createClient } from "@/utils/server"
 import { put } from "@vercel/blob"
-import { createMutableClient } from "@/utils/server"
 import { revalidatePath } from "next/cache"
 
 export async function uploadAvatar(formData: FormData) {
   try {
-    const supabase = await createMutableClient()
+    // Initialize Supabase client
+    const supabase = await createClient()
 
-    // Get the current user session
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    // Get current user session
+    const { data: sessionData } = await supabase.auth.getSession()
+    const session = sessionData?.session
+
     if (!session?.user) {
-      return { error: "You must be logged in to upload an avatar" }
+      return { error: "Unauthorized" }
     }
 
-    const userId = session.user.id
     const file = formData.get("avatar") as File
 
     if (!file || file.size === 0) {
-      return { error: "No file selected" }
+      return { error: "No file provided" }
     }
 
-    // Validate file type
+    // Check file type
     if (!file.type.startsWith("image/")) {
       return { error: "File must be an image" }
     }
 
-    // Limit file size (e.g., 5MB)
+    // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       return { error: "File size must be less than 5MB" }
     }
 
-    // Generate a unique filename with user ID
-    const filename = `avatars/${userId}/${Date.now()}-${file.name}`
-
     // Upload to Vercel Blob
-    const blob = await put(filename, file, {
+    const blob = await put(`avatars/${session.user.id}-${Date.now()}.${file.type.split("/")[1]}`, file, {
       access: "public",
-      contentType: file.type,
     })
 
-    // Update user record in Supabase
-    const { error: updateError } = await supabase.from("users").update({ avatar_url: blob.url }).eq("id", userId)
+    // Update user's avatar_url in the database
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ avatar_url: blob.url })
+      .eq("id", session.user.id)
 
     if (updateError) {
-      console.error("Error updating user avatar:", updateError)
-      return { error: "Failed to update profile" }
+      console.error("Error updating avatar URL:", updateError)
+      return { error: "Failed to update avatar" }
     }
 
-    // Get the username to revalidate the path
-    const { data: userData } = await supabase.from("users").select("username").eq("id", userId).single()
+    // Revalidate the profile page
+    revalidatePath(`/profile/${session.user.id}`)
 
-    if (userData?.username) {
-      // Revalidate the user's profile page to show the new avatar
-      revalidatePath(`/${userData.username}`)
-    }
-
-    return { url: blob.url, success: true }
+    return { url: blob.url }
   } catch (error) {
-    console.error("Avatar upload error:", error)
+    console.error("Error uploading avatar:", error)
     return { error: "Failed to upload avatar" }
   }
 }

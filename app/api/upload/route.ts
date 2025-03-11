@@ -1,29 +1,66 @@
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client"
-import { type NextRequest, NextResponse } from "next/server"
+import { handleUpload } from "@vercel/blob/client"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+// Define the expected payload type
+interface ClientPayload {
+  userId?: string
+  type?: string
+  [key: string]: any
+}
+
+export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as HandleUploadBody
+    // Get the current user from the session
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await request.json()
 
     const response = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async (pathname) => {
-        // Check if the user is authenticated
-        // You can add your authentication logic here
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        // Type guard to ensure clientPayload is an object and not a string
+        if (typeof clientPayload === "string" || !clientPayload) {
+          throw new Error("Invalid client payload")
+        }
 
-        // This is where you can set constraints on the upload
+        // Now TypeScript knows clientPayload is an object
+        const payload = clientPayload as ClientPayload
+
+        // Verify user is authorized to upload
+        if (payload.type === "avatar" && payload.userId !== session.user.id) {
+          throw new Error("Unauthorized: Cannot upload avatar for another user")
+        }
+
+        // Set upload constraints
         return {
           allowedContentTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
           maximumSizeInBytes: 5 * 1024 * 1024, // 5MB
         }
       },
-      onUploadCompleted: async ({ blob }) => {
-        // Here you can store the URL in your database if needed
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        // Log the upload
         console.log(`Upload completed: ${blob.url}`)
 
-        // You could also update a database record with the URL
-        // await db.update({ imageUrl: blob.url })
+        // If this is an avatar upload and we have tokenPayload, we can process it
+        if (tokenPayload && typeof tokenPayload !== "string") {
+          const payload = tokenPayload as ClientPayload
+          if (payload.type === "avatar") {
+            // Handle avatar-specific logic here
+            console.log(`Avatar uploaded for user: ${payload.userId}`)
+          }
+        }
       },
     })
 

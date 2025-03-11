@@ -2,125 +2,133 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useRef } from "react"
+import { uploadAvatar } from "@/actions/avatar-actions"
+import { Camera, Loader2, CheckCircle, AlertCircle } from "lucide-react"
 import Image from "next/image"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Pencil, Loader2, CheckCircle, XCircle } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 interface AvatarUploadProps {
-  userId: string
-  avatarUrl: string | null
+  currentAvatarUrl: string | null
   username: string
 }
 
-export function AvatarUpload({ userId, avatarUrl, username }: AvatarUploadProps) {
-  const router = useRouter()
+export function AvatarUpload({ currentAvatarUrl, username }: AvatarUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
-  const [notification, setNotification] = useState<{
-    type: "success" | "error" | null
-    message: string
-  }>({ type: null, message: "" })
+  const [previewUrl, setPreviewUrl] = useState<string | null>(currentAvatarUrl)
+  const [feedback, setFeedback] = useState<{ type: "success" | "error" | null; message: string | null }>({
+    type: null,
+    message: null,
+  })
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const supabase = createClientComponentClient()
-
-  // Get the first letter of username for avatar fallback
-  const avatarFallback = (username || "?").charAt(0).toUpperCase()
-
-  // Clear notification after 3 seconds
-  useEffect(() => {
-    if (notification.type) {
-      const timer = setTimeout(() => {
-        setNotification({ type: null, message: "" })
-      }, 3000)
-      return () => clearTimeout(timer)
-    }
-  }, [notification])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    try {
-      setIsUploading(true)
+    // Create a preview
+    const objectUrl = URL.createObjectURL(file)
+    setPreviewUrl(objectUrl)
 
-      // 1. Upload the file to Supabase Storage
-      const fileExt = file.name.split(".").pop()
-      const fileName = `${userId}-${Date.now()}.${fileExt}`
-      const filePath = `avatars/${fileName}`
+    // Reset feedback
+    setFeedback({ type: null, message: null })
 
-      const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, file)
+    // Upload the file
+    setIsUploading(true)
 
-      if (uploadError) throw uploadError
+    const formData = new FormData()
+    formData.append("avatar", file)
 
-      // 2. Get the public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(filePath)
+    const result = await uploadAvatar(formData)
 
-      // 3. Update the user's avatar_url in the database
-      const { error: updateError } = await supabase.from("users").update({ avatar_url: publicUrl }).eq("id", userId)
+    setIsUploading(false)
 
-      if (updateError) throw updateError
+    if (result.error) {
+      setFeedback({
+        type: "error",
+        message: result.error,
+      })
+      // Revert to previous avatar if there was an error
+      setPreviewUrl(currentAvatarUrl)
+    } else {
+      setFeedback({
+        type: "success",
+        message: "Avatar updated successfully",
+      })
 
-      setNotification({ type: "success", message: "Avatar updated successfully" })
-      router.refresh()
-    } catch (error) {
-      console.error("Error uploading avatar:", error)
-      setNotification({ type: "error", message: "Failed to update avatar" })
-    } finally {
-      setIsUploading(false)
-      // Reset the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
+      // Clear feedback after 3 seconds
+      setTimeout(() => {
+        setFeedback({ type: null, message: null })
+      }, 3000)
     }
   }
 
-  const handleAvatarClick = () => {
-    fileInputRef.current?.click()
+  // This function directly opens the file dialog
+  const triggerFileInput = () => {
+    console.log("Upload button clicked")
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    } else {
+      console.error("File input reference is null")
+    }
   }
 
   return (
-    <div className="relative group">
-      <Avatar className="h-20 w-20 cursor-pointer" onClick={handleAvatarClick}>
-        {avatarUrl ? (
-          <Image
-            src={avatarUrl || "/placeholder.svg"}
-            alt={username || "User avatar"}
-            width={80}
-            height={80}
-            className="rounded-full object-cover"
-          />
-        ) : (
-          <AvatarFallback className="text-2xl">{avatarFallback}</AvatarFallback>
-        )}
-      </Avatar>
+    <div className="flex flex-col items-center">
+      <div className="relative">
+        {/* Avatar container */}
+        <div className="relative h-24 w-24 rounded-full overflow-hidden border-4 border-white bg-gray-200">
+          {previewUrl ? (
+            <Image src={previewUrl || "/placeholder.svg"} alt={`${username}'s avatar`} fill className="object-cover" />
+          ) : (
+            <div className="flex items-center justify-center h-full w-full bg-gray-200 text-gray-500 text-2xl font-bold">
+              {username?.[0]?.toUpperCase() || "?"}
+            </div>
+          )}
 
-      {isUploading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
-          <Loader2 className="h-5 w-5 animate-spin text-white" />
+          {isUploading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <Loader2 className="h-8 w-8 text-white animate-spin" />
+            </div>
+          )}
         </div>
-      )}
 
-      <div
-        className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-        onClick={handleAvatarClick}
-      >
-        <Pencil className="h-5 w-5 text-white" />
+        {/* Upload button - made larger and more prominent */}
+        <button
+          onClick={triggerFileInput}
+          className="absolute bottom-0 right-0 h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md hover:bg-primary/90 transition-colors z-10"
+          disabled={isUploading}
+          type="button"
+        >
+          <Camera className="h-5 w-5" />
+        </button>
+
+        {/* File input - hidden but accessible */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+          id="avatar-upload"
+        />
       </div>
 
-      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+      {/* Clickable overlay for the entire avatar */}
+      <div className="absolute inset-0 cursor-pointer" onClick={triggerFileInput} aria-hidden="true" />
 
-      {notification.type && (
+      {/* Explicit upload text link */}
+      <button onClick={triggerFileInput} className="mt-2 text-sm text-primary hover:underline" type="button">
+        Change avatar
+      </button>
+
+      {feedback.type && (
         <div
-          className={`absolute -bottom-12 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-md text-sm flex items-center gap-1.5 ${
-            notification.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+          className={`mt-2 text-sm flex items-center gap-1 ${
+            feedback.type === "success" ? "text-green-600" : "text-red-600"
           }`}
         >
-          {notification.type === "success" ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-          {notification.message}
+          {feedback.type === "success" ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+          <span>{feedback.message}</span>
         </div>
       )}
     </div>

@@ -1,3 +1,4 @@
+import type React from "react"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import Header from "@/components/header"
@@ -19,6 +20,9 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        <meta name="e5416626e66c8f003aa1d638e442a57d2f7a6b8a" content="e5416626e66c8f003aa1d638e442a57d2f7a6b8a" />
+      </head>
       <body className={inter.className}>
         <div className="min-h-screen bg-gray-50">
           {session && <Header />}

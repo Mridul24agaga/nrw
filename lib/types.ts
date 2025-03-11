@@ -23,6 +23,8 @@ export interface Post extends PostRow {
   comments?: Comment[]
   likes_count?: number
   bookmarks_count?: number
+  image_url?: string // Added this property
+
 }
 
 export interface Comment {

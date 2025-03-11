@@ -5,8 +5,8 @@ import Sidebar from "@/components/sidebar"
 import { Post } from "@/components/post"
 import { FollowButton } from "@/components/follow-button"
 import { getFollowerCount, getFollowingCount, getFollowingStatus } from "@/actions/user-actions"
+import { AvatarUpload } from "@/components/avatar-upload"
 import type { User } from "@/lib/types"
-import { AvatarUploadButton } from "@/components/avatar-upload-button"
 import { Calendar } from "lucide-react"
 
 interface PageProps {
@@ -40,6 +40,7 @@ export default async function ProfilePage({ params, searchParams }: PageProps) {
         user_id,
         created_at,
         last_updated,
+        image_url,
         user:users!posts_user_id_fkey (id, username, avatar_url)
       )
     `)
@@ -60,6 +61,7 @@ export default async function ProfilePage({ params, searchParams }: PageProps) {
   const posts = (user.posts || []).map((post) => ({
     id: post.id,
     content: post.content,
+    image_url: post.image_url,
     user_id: post.user_id,
     created_at: post.created_at,
     user: {
@@ -103,68 +105,75 @@ export default async function ProfilePage({ params, searchParams }: PageProps) {
           <div className="flex-1">
             {/* Profile Header */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
-              {/* Cover Photo */}
-              <div className="h-48 bg-gradient-to-r from-blue-500 to-purple-600 relative">
-                {/* Avatar */}
-                <div className="absolute -bottom-12 left-8">
-                  <div className="h-24 w-24 rounded-full border-4 border-white bg-white overflow-hidden">
-                    {avatarUrlWithCache ? (
-                      <Image
-                        src={avatarUrlWithCache || "/placeholder.svg"}
-                        alt={`${user.username}'s profile`}
-                        fill
-                        className="object-cover"
-                      />
+              {/* Cover Photo Container */}
+              <div className="relative">
+                {/* Gradient Background */}
+                <div className="h-48 bg-gradient-to-r from-blue-500 to-purple-600" />
+
+                {/* Content Container with proper spacing for avatar */}
+                <div className="relative px-8 pb-6">
+                  {/* Avatar Container - Positioned relative to the content container */}
+                  <div className="absolute -top-12 left-0">
+                    {isOwnProfile ? (
+                      <AvatarUpload currentAvatarUrl={avatarUrlWithCache} username={user.username || "Anonymous"} />
                     ) : (
-                      <div className="h-full w-full flex items-center justify-center bg-gray-200">
-                        <span className="text-3xl font-bold text-gray-500">
-                          {user.username?.[0]?.toUpperCase() || "?"}
-                        </span>
+                      <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-white bg-gray-200">
+                        {avatarUrlWithCache ? (
+                          <Image
+                            src={avatarUrlWithCache || "/placeholder.svg"}
+                            alt={`${user.username}'s avatar`}
+                            width={96}
+                            height={96}
+                            className="object-cover w-full h-full"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full w-full bg-gray-200 text-gray-500 text-2xl font-bold">
+                            {user.username?.[0]?.toUpperCase() || "?"}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                </div>
 
-                {/* Upload Button or Follow Button */}
-                <div className="absolute bottom-4 right-4">
-                  {isOwnProfile ? (
-                    <AvatarUploadButton />
-                  ) : (
-                    session?.user && <FollowButton userId={user.id} initialIsFollowing={followingStatus.isFollowing} />
-                  )}
-                </div>
-              </div>
+                  {/* Follow Button - Positioned relative to the gradient background */}
+                  <div className="absolute -top-12 right-0">
+                    {!isOwnProfile && session?.user && (
+                      <FollowButton userId={user.id} initialIsFollowing={followingStatus.isFollowing} />
+                    )}
+                  </div>
 
-              {/* Profile Info */}
-              <div className="pt-16 pb-6 px-8">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div>
-                    <h1 className="text-2xl font-bold">{user.username || "Anonymous"}</h1>
-                    <p className="text-gray-600 mt-1">{user.bio || "No bio available"}</p>
-                  </div>
-                </div>
+                  {/* Profile Info - With proper top padding to account for avatar */}
+                  <div className="pt-16">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div>
+                        <h1 className="text-2xl font-bold">{user.username || "Anonymous"}</h1>
+                        <p className="text-gray-600 mt-1">{user.bio || "No bio available"}</p>
+                      </div>
+                    </div>
 
-                {/* Stats */}
-                <div className="flex flex-wrap gap-6 mt-6 text-sm">
-                  <div className="flex items-center gap-1 text-gray-700">
-                    <Calendar className="h-4 w-4" />
-                    <span>Joined {joinDate || "Unknown"}</span>
-                  </div>
-                </div>
+                    {/* Stats */}
+                    <div className="flex flex-wrap gap-6 mt-6 text-sm">
+                      <div className="flex items-center gap-1 text-gray-700">
+                        <Calendar className="h-4 w-4" />
+                        <span>Joined {joinDate || "Unknown"}</span>
+                      </div>
+                    </div>
 
-                {/* Counts */}
-                <div className="flex flex-wrap gap-6 mt-6 border-t pt-6">
-                  <div className="text-center">
-                    <div className="font-bold text-lg">{posts.length}</div>
-                    <div className="text-sm text-gray-600">Posts</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-bold text-lg">{followersCount}</div>
-                    <div className="text-sm text-gray-600">Followers</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-bold text-lg">{followingCount}</div>
-                    <div className="text-sm text-gray-600">Following</div>
+                    {/* Counts */}
+                    <div className="flex flex-wrap gap-6 mt-6 border-t pt-6">
+                      <div className="text-center">
+                        <div className="font-bold text-lg">{posts.length}</div>
+                        <div className="text-sm text-gray-600">Posts</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-bold text-lg">{followersCount}</div>
+                        <div className="text-sm text-gray-600">Followers</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-bold text-lg">{followingCount}</div>
+                        <div className="text-sm text-gray-600">Following</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
