@@ -7,7 +7,7 @@ import Image from "next/image"
 import { ImageIcon, Loader2, RefreshCw, X } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
-import { uploadPostImage } from "@/actions/upload-actions"
+import { upload } from "@vercel/blob/client"
 
 export default function CreatePost() {
   const [content, setContent] = useState("")
@@ -18,6 +18,7 @@ export default function CreatePost() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -104,34 +105,47 @@ export default function CreatePost() {
     setSelectedImage(null)
     setImagePreview(null)
     setUploadError(null)
+    setUploadProgress(0)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
   }
 
-  // Upload image using server action
+  // Upload image using Vercel Blob
   const uploadImage = async (file: File): Promise<string | null> => {
     setIsUploading(true)
     setUploadError(null)
+    setUploadProgress(0)
 
     try {
-      // Create FormData
-      const formData = new FormData()
-      formData.append("file", file)
+      // Generate a clean filename with timestamp to avoid collisions
+      const filename = file.name.replace(/[^a-zA-Z0-9.-]/g, "-")
+      const timestamp = Date.now()
+      const pathname = `posts/${timestamp}-${filename}`
 
-      // Call the server action
-      const result = await uploadPostImage(formData)
+      // Create a custom XMLHttpRequest to track upload progress
+      const xhr = new XMLHttpRequest()
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100)
+          setUploadProgress(progress)
+          console.log(`Upload progress: ${progress}%`)
+        }
+      })
 
-      if (result.error) {
-        setUploadError(result.error)
-        return null
-      }
+      // Upload to Vercel Blob
+      const result = await upload(pathname, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+        clientPayload: user?.id, // Optional: Send user ID to track who uploaded
+        multipart: file.size > 1024 * 1024, // Use multipart for files larger than 1MB
+      })
 
-      // Ensure url is not undefined
-      return result.url || null
+      console.log("Upload successful:", result)
+      return result.url
     } catch (error) {
       console.error("Error uploading image:", error)
-      setUploadError("Failed to upload image. Please try again.")
+      setUploadError(typeof error === "string" ? error : "Failed to upload image. Please try again.")
       return null
     } finally {
       setIsUploading(false)
@@ -173,6 +187,7 @@ export default function CreatePost() {
       setContent("")
       setSelectedImage(null)
       setImagePreview(null)
+      setUploadProgress(0)
       setIsPosting(false)
       setIsRefreshing(true)
 
@@ -240,6 +255,16 @@ export default function CreatePost() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
+
+              {/* Upload progress indicator */}
+              {isUploading && uploadProgress > 0 && (
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 text-right">{uploadProgress}%</p>
+                </div>
+              )}
             </div>
           )}
 

@@ -1,60 +1,39 @@
-import { put } from "@vercel/blob";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client"
+import { type NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: Request): Promise<NextResponse> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // Get the user session
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const body = (await request.json()) as HandleUploadBody
 
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const response = await handleUpload({
+      body,
+      request,
+      onBeforeGenerateToken: async (pathname) => {
+        // Check if the user is authenticated
+        // You can add your authentication logic here
 
-    const userId = session.user.id;
-    const { searchParams } = new URL(request.url);
-    const filename = searchParams.get("filename");
+        // This is where you can set constraints on the upload
+        return {
+          allowedContentTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+          maximumSizeInBytes: 5 * 1024 * 1024, // 5MB
+        }
+      },
+      onUploadCompleted: async ({ blob }) => {
+        // Here you can store the URL in your database if needed
+        console.log(`Upload completed: ${blob.url}`)
 
-    if (!filename) {
-      return NextResponse.json({ error: "Filename is required" }, { status: 400 });
-    }
+        // You could also update a database record with the URL
+        // await db.update({ imageUrl: blob.url })
+      },
+    })
 
-    // Check if request.body is null
-    if (!request.body) {
-      return NextResponse.json({ error: "Request body is missing" }, { status: 400 });
-    }
-
-    // Now TypeScript knows request.body is not null
-    const blob = await put(`avatars/${userId}/${filename}`, request.body, {
-      access: "public",
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
-
-    // Update Supabase with the new avatar URL
-    const { error } = await supabase
-      .from("users")
-      .update({ avatar_url: blob.url })
-      .eq("id", userId);
-
-    if (error) {
-      console.error("Error updating user profile:", error);
-      return NextResponse.json(
-        { error: `Failed to update user profile: ${error.message}` },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(blob);
+    return NextResponse.json(response)
   } catch (error) {
-    console.error("Upload error:", error);
-    return NextResponse.json(
-      { error: `Upload failed: ${(error as Error).message}` },
-      { status: 500 }
-    );
+    console.error("Error in upload handler:", error)
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 400 })
   }
 }
+
+// Required for streaming responses
+export const dynamic = "force-dynamic"
+
