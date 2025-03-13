@@ -7,7 +7,6 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { ImageIcon, X, Upload } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { upload } from "@vercel/blob/client"
 
 interface AddMemoryFormProps {
   memorialId: string
@@ -18,10 +17,8 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
   const [content, setContent] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -45,114 +42,82 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
     setDragActive(false)
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileSelection(e.dataTransfer.files[0])
+      await handleImageUpload(e.dataTransfer.files[0])
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      handleFileSelection(e.target.files[0])
+      await handleImageUpload(e.target.files[0])
     }
   }
 
-  const handleFileSelection = (file: File) => {
-    // Check file size (limit to 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError("File size exceeds 5MB limit")
-      return
-    }
+  const handleImageUpload = async (file: File) => {
+    if (isUploading) return
 
-    // Check file type
+    // Validate file type
     if (!file.type.startsWith("image/")) {
-      setError("Only image files are allowed")
+      setError("Please upload an image file")
       return
     }
 
-    setSelectedFile(file)
-    setError(null)
-
-    // Create preview
-    const objectUrl = URL.createObjectURL(file)
-    setPreviewUrl(objectUrl)
-  }
-
-  const removeImage = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError("File size must be less than 5MB")
+      return
     }
-    setSelectedFile(null)
-    setPreviewUrl(null)
-    setUploadProgress(0)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
-  }
-
-  const uploadImage = async () => {
-    if (!selectedFile) return null
 
     setIsUploading(true)
-    setUploadProgress(0)
+    setError(null)
 
     try {
-      // Generate a clean filename with timestamp to avoid collisions
-      const filename = selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, "-")
-      const timestamp = Date.now()
-      const pathname = `memories/${memorialId}/${timestamp}-${filename}`
+      const formData = new FormData()
+      formData.append("file", file)
 
-      // Create a custom XMLHttpRequest to track upload progress
-      const xhr = new XMLHttpRequest()
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100)
-          setUploadProgress(progress)
-          console.log(`Upload progress: ${progress}%`)
-        }
+      // Use the API route for image upload
+      const response = await fetch("/api/memory-image-upload", {
+        method: "POST",
+        body: formData,
+        // Don't manually set Content-Type header - browser will set it correctly with boundary
       })
 
-      // Upload to Vercel Blob
-      const result = await upload(pathname, selectedFile, {
-        access: "public",
-        handleUploadUrl: "/api/upload",
-        multipart: selectedFile.size > 1024 * 1024, // Use multipart for files larger than 1MB
-      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Upload failed" }))
+        throw new Error(errorData.error || `Upload failed with status: ${response.status}`)
+      }
 
-      console.log("Memory image upload successful:", result)
-      return result.url
+      const result = await response.json()
+      setImageUrl(result.imageUrl)
     } catch (error) {
-      console.error("Error uploading memory image:", error)
-      setError(typeof error === "string" ? error : "Failed to upload image")
-      return null
+      console.error("Error uploading image:", error)
+      setError(error instanceof Error ? error.message : "Failed to upload image. Please try again.")
     } finally {
       setIsUploading(false)
     }
   }
 
+  const removeImage = () => {
+    setImageUrl(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!content.trim() && !selectedFile) return
+    if (!content.trim() && !imageUrl) return
 
     setIsSubmitting(true)
     setError(null)
 
     try {
-      // First, upload the image if there is one
-      let uploadedImageUrl = null
-      if (selectedFile) {
-        uploadedImageUrl = await uploadImage()
-        if (!uploadedImageUrl) {
-          throw new Error("Failed to upload image")
-        }
-      }
-
-      // Now add the memory with the image URL
       const { data: userData, error: userError } = await supabase.auth.getUser()
       if (userError) throw userError
 
       // Create memory object with content and optional image
       const memoryObject = {
         content,
-        imageUrl: uploadedImageUrl,
+        imageUrl: imageUrl || null,
         createdAt: new Date().toISOString(),
       }
 
@@ -165,7 +130,7 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
 
       if (fetchError) throw fetchError
 
-      // Parse existing memories
+      // Parse existing memories if they exist
       let existingMemories = []
       try {
         if (currentData?.memory_message) {
@@ -197,19 +162,17 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
       if (updateError) throw updateError
 
       // Call the callback with the new memory
-      onMemoryAdded(content, uploadedImageUrl || undefined)
+      onMemoryAdded(content, imageUrl || undefined)
 
       // Reset form
       setContent("")
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl)
+      setImageUrl(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
       }
-      setSelectedFile(null)
-      setPreviewUrl(null)
-      setUploadProgress(0)
     } catch (error) {
       console.error("Error adding memory:", error)
-      setError(error instanceof Error ? error.message : "Failed to add memory")
+      setError("Failed to add memory. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -233,15 +196,10 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
             />
 
             {/* Image preview area */}
-            {previewUrl && (
+            {imageUrl && (
               <div className="mt-3 relative">
                 <div className="relative rounded-lg overflow-hidden w-full h-48">
-                  <Image
-                    src={previewUrl || "/placeholder.svg"}
-                    alt="Memory image preview"
-                    fill
-                    className="object-cover"
-                  />
+                  <Image src={imageUrl || "/placeholder.svg"} alt="Memory image" fill className="object-cover" />
                 </div>
                 <button
                   type="button"
@@ -250,21 +208,11 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
                 >
                   <X className="w-4 h-4" />
                 </button>
-
-                {/* Upload progress indicator */}
-                {isUploading && uploadProgress > 0 && (
-                  <div className="absolute bottom-2 left-2 right-2 bg-white bg-opacity-75 p-2 rounded">
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-green-500 h-2 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
-                    </div>
-                    <p className="text-xs text-gray-600 mt-1 text-right">{uploadProgress}%</p>
-                  </div>
-                )}
               </div>
             )}
 
             {/* Drag and drop area */}
-            {!previewUrl && (
+            {!imageUrl && (
               <div
                 className={`mt-3 border-2 border-dashed rounded-lg p-4 text-center ${
                   dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
@@ -288,7 +236,13 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
                 >
                   <Upload className="w-6 h-6 text-gray-400 mb-2" />
                   <span className="text-sm text-gray-500">
-                    <span className="font-medium text-blue-500">Click to upload</span> or drag and drop
+                    {isUploading ? (
+                      "Uploading..."
+                    ) : (
+                      <>
+                        <span className="font-medium text-blue-500">Click to upload</span> or drag and drop
+                      </>
+                    )}
                   </span>
                   <span className="text-xs text-gray-400 mt-1">PNG, JPG, GIF up to 5MB</span>
                 </label>
@@ -302,17 +256,17 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
           <div className="text-sm text-gray-500">Share a special memory</div>
           <button
             type="submit"
-            disabled={isSubmitting || (!content.trim() && !selectedFile) || isUploading}
+            disabled={isSubmitting || (!content.trim() && !imageUrl) || isUploading}
             className={`
               inline-flex items-center px-4 py-2 rounded-full
               ${
-                isSubmitting || (!content.trim() && !selectedFile) || isUploading
+                isSubmitting || (!content.trim() && !imageUrl) || isUploading
                   ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                   : "bg-[#86efac] text-white hover:bg-[#6ee7a1] transition-colors"
               }
             `}
           >
-            {isSubmitting || isUploading ? (
+            {isSubmitting ? (
               <span className="flex items-center">
                 <svg
                   className="animate-spin -ml-1 mr-2 h-4 w-4"
@@ -327,7 +281,7 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                {isUploading ? "Uploading..." : "Posting..."}
+                Posting...
               </span>
             ) : (
               <span>Post</span>

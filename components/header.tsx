@@ -3,7 +3,20 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import { Search, Plus, User, LogOut } from "lucide-react"
+import {
+  Search,
+  Plus,
+  User,
+  LogOut,
+  Home,
+  Bookmark,
+  Clock,
+  PenTool,
+  Users,
+  MessageCircle,
+  Info,
+  Scale,
+} from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -37,7 +50,7 @@ export default function Header() {
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [noResultsFound, setNoResultsFound] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false) // Added mobile menu state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const supabase = createClientComponentClient()
   const router = useRouter()
   const searchRef = useRef<HTMLFormElement>(null)
@@ -148,6 +161,22 @@ export default function Header() {
     }
   }
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      // Don't close if clicking inside dropdown or toggle button
+      if (isDropdownOpen && !target.closest(".account-dropdown") && !target.closest(".account-toggle")) {
+        setIsDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [isDropdownOpen])
+
   return (
     <header className="z-50 bg-white shadow-sm">
       <div className="bg-green-500 text-white text-center py-2 text-sm">
@@ -158,7 +187,13 @@ export default function Header() {
           <Image src="/memories.png" alt="Logo" width={100} height={100} className="w-auto h-8 sm:h-10" />
         </Link>
 
-        <button className="sm:hidden absolute right-4 top-4" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+        <button
+          className="sm:hidden absolute right-4 top-4"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsMobileMenuOpen(!isMobileMenuOpen)
+          }}
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -172,6 +207,7 @@ export default function Header() {
 
         <div
           className={`${isMobileMenuOpen ? "flex" : "hidden"} sm:flex flex-col sm:flex-row items-center w-full sm:w-auto`}
+          onClick={(e) => e.stopPropagation()} // Prevent clicks from bubbling up
         >
           <form onSubmit={handleSearch} className="relative flex-1 w-full max-w-xl mb-2 sm:mb-0" ref={searchRef}>
             <input
@@ -186,10 +222,13 @@ export default function Header() {
             </button>
           </form>
 
-          <div className="relative w-full sm:w-auto">
+          <div className="relative w-full sm:w-auto account-dropdown">
             <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center justify-center w-full sm:w-auto gap-2 rounded-lg p-2 hover:bg-gray-100"
+              onClick={(e) => {
+                e.stopPropagation() // Prevent event from bubbling up
+                setIsDropdownOpen(!isDropdownOpen)
+              }}
+              className="flex items-center justify-center w-full sm:w-auto gap-2 rounded-lg p-2 hover:bg-gray-100 account-toggle"
             >
               {profile?.avatar_url ? (
                 <Image
@@ -206,7 +245,10 @@ export default function Header() {
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute right-0 left-0 sm:left-auto mt-2 w-full sm:w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+              <div
+                className="absolute right-0 left-0 sm:left-auto mt-2 w-full sm:w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-50"
+                onClick={(e) => e.stopPropagation()} // Prevent clicks from closing mobile menu
+              >
                 <div className="px-4 py-2 text-sm text-black">Switch Account</div>
                 <div className="h-px bg-gray-200" />
                 <button
@@ -256,6 +298,78 @@ export default function Header() {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Mobile Navigation Menu - Only visible on mobile */}
+          <div className="w-full mt-4 border-t pt-4 sm:hidden">
+            <div className="flex flex-col gap-1">
+              <Link
+                href="/"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+              >
+                <Home size={18} />
+                <span>Home</span>
+              </Link>
+
+              <Link
+                href="/bookmarks"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+              >
+                <Bookmark size={18} />
+                <span>Bookmarks</span>
+              </Link>
+
+              <Link
+                href="/create-memorial"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+              >
+                <Clock size={18} />
+                <span>Memories</span>
+              </Link>
+
+              <Link
+                href="/moneymaker"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+              >
+                <PenTool size={18} />
+                <span>Collage Maker</span>
+              </Link>
+
+              <Link
+                href="/companion"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+              >
+                <Users size={18} />
+                <span>Diary/ Virtual Companion</span>
+              </Link>
+
+              <Link
+                href="/chat"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+              >
+                <MessageCircle size={18} />
+                <span>Chat</span>
+              </Link>
+            </div>
+
+            {/* Footer Navigation Group */}
+            <div className="flex flex-col gap-1 pt-4">
+              <Link
+                href="/about"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+              >
+                <Info size={18} />
+                <span>About Us</span>
+              </Link>
+
+              <Link
+                href="/legal"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+              >
+                <Scale size={18} />
+                <span>Legal</span>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

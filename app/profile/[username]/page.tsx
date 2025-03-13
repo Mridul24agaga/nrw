@@ -1,195 +1,182 @@
-import { createClient } from "@/utils/server"
-import { notFound } from "next/navigation"
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect, useRef } from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { notFound, useParams } from "next/navigation"
 import Image from "next/image"
 import Sidebar from "@/components/sidebar"
 import { Post } from "@/components/post"
 import { FollowButton } from "@/components/follow-button"
-import { getFollowerCount, getFollowingCount, getFollowingStatus } from "@/actions/user-actions"
-import { AvatarUpload } from "@/components/avatar-upload"
-import type { User } from "@/lib/types"
-import { Calendar } from "lucide-react"
 
-interface PageProps {
-  params: Promise<{ username: string }>
-  searchParams?: Promise<Record<string, string | string[] | undefined>>
-}
+export default function ProfilePage() {
+  const supabase = createClientComponentClient()
+  const params = useParams()
+  const username = params?.username as string
 
-export default async function ProfilePage({ params, searchParams }: PageProps) {
-  // Resolve params
-  const resolvedParams = await params
-  const username = resolvedParams.username
+  const [session, setSession] = useState<any>(null)
+  const [user, setUser] = useState<any>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [isFollowing, setIsFollowing] = useState<boolean>(false)
+  const [isLoadingFollow, setIsLoadingFollow] = useState<boolean>(true)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Resolve searchParams if needed
-  if (searchParams) await searchParams
+  useEffect(() => {
+    async function fetchUser() {
+      const { data: sessionData } = await supabase.auth.getSession()
+      setSession(sessionData?.session)
 
-  // Initialize Supabase client
-  const supabase = await createClient()
+      const { data: userData, error } = await supabase.from("users").select("*").eq("username", username).single()
 
-  // Get current user session
-  const { data: sessionData } = await supabase.auth.getSession()
-  const session = sessionData?.session
+      if (error || !userData) {
+        console.error("Error fetching user:", error)
+        notFound()
+        return
+      }
 
-  // Fetch user data
-  const { data: userData, error: userError } = await supabase
-    .from("users")
-    .select(`
-      *,
-      posts (
-        id,
-        content,
-        user_id,
-        created_at,
-        last_updated,
-        image_url,
-        user:users!posts_user_id_fkey (id, username, avatar_url)
-      )
-    `)
-    .eq("username", username)
-    .single()
+      setUser(userData)
+      setAvatarUrl(userData.avatar_url)
 
-  // Handle user not found
-  if (userError || !userData) {
-    console.error("Error fetching user:", userError)
-    notFound()
-  }
+      // Check if current user is following this profile
+      if (sessionData?.session?.user) {
+        const { data: followData, error: followError } = await supabase
+          .from("follows")
+          .select("*")
+          .eq("follower_id", sessionData.session.user.id)
+          .eq("following_id", userData.id)
+          .single()
 
-  // Cast to User type and check if profile belongs to current user
-  const user = userData as User
+        if (followError && followError.code !== "PGRST116") {
+          console.error("Error checking follow status:", followError)
+        }
+
+        setIsFollowing(!!followData)
+        setIsLoadingFollow(false)
+      } else {
+        setIsLoadingFollow(false)
+      }
+    }
+
+    if (username) {
+      fetchUser()
+    }
+  }, [supabase, username])
+
+  if (!user) return <p>Loading...</p>
+
   const isOwnProfile = session?.user?.id === user.id
 
-  // Format posts data
-  const posts = (user.posts || []).map((post) => ({
-    id: post.id,
-    content: post.content,
-    image_url: post.image_url,
-    user_id: post.user_id,
-    created_at: post.created_at,
-    user: {
-      id: post.user?.id || post.user_id,
-      username: post.user?.username || user.username,
-      avatar_url: post.user?.avatar_url || user.avatar_url,
-    },
-  }))
+  async function handleAvatarUpload(event: React.FormEvent) {
+    event.preventDefault()
+    if (!fileInputRef.current?.files) return
+    const file = fileInputRef.current.files[0]
 
-  // Fetch follower and following counts
-  const [followersCount, followingCount, followingStatus] = await Promise.all([
-    getFollowerCount(user.id),
-    getFollowingCount(user.id),
-    session?.user ? getFollowingStatus(user.id) : Promise.resolve({ isFollowing: false }),
-  ])
+    const formData = new FormData()
+    formData.append("file", file)
 
-  // Add cache-busting parameter to avatar URL
-  const timestamp = Date.now()
-  const avatarUrlWithCache = user.avatar_url ? `${user.avatar_url}?t=${timestamp}` : null
-
-  // Format join date
-  const joinDate = user.created_at
-    ? new Date(user.created_at).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
       })
-    : null
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || "Upload failed")
+      }
+
+      const data = await res.json()
+      const url = data.avatar_url || data.url
+
+      await supabase.from("users").update({ avatar_url: url }).eq("id", user.id)
+      setAvatarUrl(url)
+    } catch (error) {
+      console.error("Error uploading avatar:", error)
+      alert("Failed to upload avatar. Please try again.")
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar */}
           <div className="hidden lg:block lg:w-64 shrink-0">
             <div className="sticky top-20">
               <Sidebar />
             </div>
           </div>
 
-          {/* Main Content */}
           <div className="flex-1">
-            {/* Profile Header */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
-              {/* Cover Photo Container */}
               <div className="relative">
-                {/* Gradient Background */}
                 <div className="h-48 bg-gradient-to-r from-blue-500 to-purple-600" />
 
-                {/* Content Container with proper spacing for avatar */}
                 <div className="relative px-8 pb-6">
-                  {/* Avatar Container - Positioned relative to the content container */}
                   <div className="absolute -top-12 left-0">
-                    {isOwnProfile ? (
-                      <AvatarUpload currentAvatarUrl={avatarUrlWithCache} username={user.username || "Anonymous"} />
-                    ) : (
-                      <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-white bg-gray-200">
-                        {avatarUrlWithCache ? (
-                          <Image
-                            src={avatarUrlWithCache || "/placeholder.svg"}
-                            alt={`${user.username}'s avatar`}
-                            width={96}
-                            height={96}
-                            className="object-cover w-full h-full"
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center h-full w-full bg-gray-200 text-gray-500 text-2xl font-bold">
-                            {user.username?.[0]?.toUpperCase() || "?"}
-                          </div>
-                        )}
-                      </div>
+                    <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-white bg-gray-200">
+                      {avatarUrl ? (
+                        <Image
+                          src={avatarUrl || "/placeholder.svg"}
+                          alt={`${user.username}'s avatar`}
+                          width={96}
+                          height={96}
+                          className="object-cover w-full h-full"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full w-full bg-gray-200 text-gray-500 text-2xl font-bold">
+                          {user.username?.[0]?.toUpperCase() || "?"}
+                        </div>
+                      )}
+                    </div>
+
+                    {isOwnProfile && (
+                      <form onSubmit={handleAvatarUpload} className="mt-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          required
+                          className="hidden"
+                          onChange={(e) => {
+                            // Auto-submit when file is selected
+                            if (e.target.files && e.target.files.length > 0) {
+                              handleAvatarUpload(e)
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="mt-2 px-3 py-1 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-colors"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          Change Avatar
+                        </button>
+                      </form>
                     )}
                   </div>
 
-                  {/* Follow Button - Positioned relative to the gradient background */}
                   <div className="absolute -top-12 right-0">
-                    {!isOwnProfile && session?.user && (
-                      <FollowButton userId={user.id} initialIsFollowing={followingStatus.isFollowing} />
+                    {!isOwnProfile && session?.user && !isLoadingFollow && (
+                      <FollowButton userId={user.id} initialIsFollowing={isFollowing} />
                     )}
                   </div>
 
-                  {/* Profile Info - With proper top padding to account for avatar */}
                   <div className="pt-16">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <div>
-                        <h1 className="text-2xl font-bold">{user.username || "Anonymous"}</h1>
-                        <p className="text-gray-600 mt-1">{user.bio || "No bio available"}</p>
-                      </div>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="flex flex-wrap gap-6 mt-6 text-sm">
-                      <div className="flex items-center gap-1 text-gray-700">
-                        <Calendar className="h-4 w-4" />
-                        <span>Joined {joinDate || "Unknown"}</span>
-                      </div>
-                    </div>
-
-                    {/* Counts */}
-                    <div className="flex flex-wrap gap-6 mt-6 border-t pt-6">
-                      <div className="text-center">
-                        <div className="font-bold text-lg">{posts.length}</div>
-                        <div className="text-sm text-gray-600">Posts</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">{followersCount}</div>
-                        <div className="text-sm text-gray-600">Followers</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-lg">{followingCount}</div>
-                        <div className="text-sm text-gray-600">Following</div>
-                      </div>
-                    </div>
+                    <h1 className="text-2xl font-bold">{user.username}</h1>
+                    <p className="text-gray-600 mt-1">{user.bio || "No bio available"}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Posts Section */}
             <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
               <h2 className="text-xl font-bold mb-4">Posts</h2>
-
               <div className="space-y-6">
-                {posts.length > 0 ? (
-                  posts.map((post) => <Post key={post.id} post={post} />)
+                {user.posts?.length ? (
+                  user.posts.map((post: any) => <Post key={post.id} post={post} />)
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No posts yet</p>
-                  </div>
+                  <p>No posts yet</p>
                 )}
               </div>
             </div>

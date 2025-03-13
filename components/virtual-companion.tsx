@@ -3,7 +3,6 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import Image from "next/image"
 import { MessageSquare, Book } from "lucide-react"
 
 interface Message {
@@ -45,9 +44,7 @@ export default function VirtualCompanion() {
 
     const { data, error } = await supabase
       .from("users")
-      .select(
-        "companion_name, companion_description, companion_messages, companion_uses_left, companion_diary_mode"
-      )
+      .select("companion_name, companion_description, companion_messages, companion_uses_left, companion_diary_mode")
       .eq("id", user.id)
       .single()
 
@@ -117,11 +114,17 @@ export default function VirtualCompanion() {
     e.preventDefault()
     if (!companionData || (currentMode === "chat" && companionData.uses_left <= 0) || !message.trim()) return
 
+    setIsLoading(true)
+    setError(null)
+
     const newMessage: Message = {
       role: currentMode === "chat" ? "user" : "diary",
       content: message,
       timestamp: Date.now(),
     }
+
+    // Store the message text in case we need to restore it after an error
+    const currentMessage = message
 
     setCompanionData((prev) => ({
       ...prev!,
@@ -136,25 +139,34 @@ export default function VirtualCompanion() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt: message,
+            prompt: currentMessage,
             description: companionData.description,
             mood,
           }),
         })
 
-        if (!response.ok) throw new Error("Failed to get response")
-
-        const result = await response.json()
-        const botMessage: Message = {
-          role: "bot",
-          content: result.response,
-          timestamp: Date.now(),
+        // Better error handling
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "Unknown error")
+          throw new Error(`Failed to get response: ${response.status} ${errorText}`)
         }
 
-        setCompanionData((prev) => ({
-          ...prev!,
-          messages: [...prev!.messages, botMessage],
-        }))
+        try {
+          const result = await response.json()
+          const botMessage: Message = {
+            role: "bot",
+            content: result.response || "Sorry, I couldn't generate a response.",
+            timestamp: Date.now(),
+          }
+
+          setCompanionData((prev) => ({
+            ...prev!,
+            messages: [...prev!.messages, botMessage],
+          }))
+        } catch (jsonError) {
+          console.error("Error parsing JSON response:", jsonError)
+          throw new Error("Received invalid response from server. Please try again.")
+        }
       }
 
       const {
@@ -176,7 +188,20 @@ export default function VirtualCompanion() {
       }
     } catch (error) {
       console.error("Error:", error)
-      setError("Failed to send message. Please try again.")
+      setError(error instanceof Error ? error.message : "Failed to send message. Please try again.")
+
+      // Restore the message so the user doesn't lose their input
+      setMessage(currentMessage)
+
+      // Revert the uses_left counter since the message failed
+      setCompanionData((prev) => ({
+        ...prev!,
+        uses_left: currentMode === "chat" ? prev!.uses_left + 1 : prev!.uses_left,
+        // Remove the failed message from the list
+        messages: prev!.messages.slice(0, -1),
+      }))
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -306,7 +331,7 @@ export default function VirtualCompanion() {
       {isSettingsOpen && (
         <div className="p-4 border-b">
           <h3 className="font-semibold mb-2">Chatbot Settings</h3>
-          {/* Removed spelling mistakes toggle */}
+          {/* Settings content */}
         </div>
       )}
 
@@ -323,7 +348,9 @@ export default function VirtualCompanion() {
                     </span>
                   </div>
                 ) : (
-                  <Image src="/" alt="" width={32} height={32} className="rounded-full" />
+                  <div className="h-full w-full rounded-full bg-gray-400 flex items-center justify-center">
+                    <span className="text-white text-sm font-semibold">U</span>
+                  </div>
                 )}
               </div>
               <div
@@ -335,6 +362,29 @@ export default function VirtualCompanion() {
               </div>
             </div>
           ))}
+
+        {isLoading && (
+          <div className="flex items-start gap-3">
+            <div className="h-8 w-8 rounded-full bg-gray-200 flex-shrink-0">
+              <div className="h-full w-full rounded-full bg-indigo-500 flex items-center justify-center">
+                <span className="text-white text-sm font-semibold">{companionData.name.charAt(0).toUpperCase()}</span>
+              </div>
+            </div>
+            <div className="rounded-lg p-3 max-w-[80%] bg-gray-100">
+              <div className="flex space-x-2">
+                <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"></div>
+                <div
+                  className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                  style={{ animationDelay: "0.2s" }}
+                ></div>
+                <div
+                  className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                  style={{ animationDelay: "0.4s" }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="border-t p-4">
@@ -371,20 +421,25 @@ export default function VirtualCompanion() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder={currentMode === "chat" ? "Type your message..." : "Write in your diary..."}
-            disabled={currentMode === "chat" && companionData.uses_left <= 0}
+            disabled={(currentMode === "chat" && companionData.uses_left <= 0) || isLoading}
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
             type="submit"
-            disabled={currentMode === "chat" && companionData.uses_left <= 0}
+            disabled={(currentMode === "chat" && companionData.uses_left <= 0) || isLoading}
             className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-            </svg>
+            {isLoading ? (
+              <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+              </svg>
+            )}
           </button>
         </form>
       </div>
     </div>
   )
 }
+

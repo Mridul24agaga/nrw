@@ -55,6 +55,18 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
   const handleImageUpload = async (file: File) => {
     if (isUploading) return
 
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file")
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError("File size must be less than 5MB")
+      return
+    }
+
     setIsUploading(true)
     setError(null)
 
@@ -62,23 +74,23 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
       const formData = new FormData()
       formData.append("file", file)
 
-      // Use the API route instead of server action
+      // Use the API route for image upload
       const response = await fetch("/api/memory-image-upload", {
         method: "POST",
         body: formData,
+        // Don't manually set Content-Type header - browser will set it correctly with boundary
       })
 
-      const result = await response.json()
-
       if (!response.ok) {
-        setError(result.error || "Failed to upload image")
-        return
+        const errorData = await response.json().catch(() => ({ error: "Upload failed" }))
+        throw new Error(errorData.error || `Upload failed with status: ${response.status}`)
       }
 
+      const result = await response.json()
       setImageUrl(result.imageUrl)
     } catch (error) {
       console.error("Error uploading image:", error)
-      setError("Failed to upload image. Please try again.")
+      setError(error instanceof Error ? error.message : "Failed to upload image. Please try again.")
     } finally {
       setIsUploading(false)
     }
