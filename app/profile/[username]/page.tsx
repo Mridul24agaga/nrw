@@ -76,7 +76,7 @@ export default function ProfilePage() {
     formData.append("file", file)
 
     try {
-      const res = await fetch("/api/upload", {
+      const res = await fetch("/api/user-upload", {
         method: "POST",
         body: formData,
       })
