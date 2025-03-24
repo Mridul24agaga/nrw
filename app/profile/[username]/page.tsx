@@ -9,6 +9,7 @@ import Image from "next/image"
 import Sidebar from "@/components/sidebar"
 import { Post } from "@/components/post"
 import { FollowButton } from "@/components/follow-button"
+import { Pencil, Save, X } from "lucide-react"
 
 export default function ProfilePage() {
   const supabase = createClientComponentClient()
@@ -21,6 +22,11 @@ export default function ProfilePage() {
   const [isFollowing, setIsFollowing] = useState<boolean>(false)
   const [isLoadingFollow, setIsLoadingFollow] = useState<boolean>(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // New state for bio editing
+  const [isEditingBio, setIsEditingBio] = useState<boolean>(false)
+  const [editedBio, setEditedBio] = useState<string>("")
+  const [isSavingBio, setIsSavingBio] = useState<boolean>(false)
 
   useEffect(() => {
     async function fetchUser() {
@@ -37,6 +43,7 @@ export default function ProfilePage() {
 
       setUser(userData)
       setAvatarUrl(userData.avatar_url)
+      setEditedBio(userData.bio || "") // Initialize edited bio with current bio
 
       // Check if current user is following this profile
       if (sessionData?.session?.user) {
@@ -95,6 +102,44 @@ export default function ProfilePage() {
       console.error("Error uploading avatar:", error)
       alert("Failed to upload avatar. Please try again.")
     }
+  }
+
+  // New function to handle bio editing
+  const handleEditBio = () => {
+    setIsEditingBio(true)
+    setEditedBio(user.bio || "")
+  }
+
+  // New function to handle bio saving
+  const handleSaveBio = async () => {
+    if (!isOwnProfile) return
+
+    setIsSavingBio(true)
+
+    try {
+      const { error } = await supabase.from("users").update({ bio: editedBio }).eq("id", user.id)
+
+      if (error) throw error
+
+      // Update local state
+      setUser({
+        ...user,
+        bio: editedBio,
+      })
+
+      setIsEditingBio(false)
+    } catch (error) {
+      console.error("Error updating bio:", error)
+      alert("Failed to update bio. Please try again.")
+    } finally {
+      setIsSavingBio(false)
+    }
+  }
+
+  // New function to handle bio edit cancellation
+  const handleCancelEditBio = () => {
+    setIsEditingBio(false)
+    setEditedBio(user.bio || "")
   }
 
   return (
@@ -164,7 +209,51 @@ export default function ProfilePage() {
 
                   <div className="pt-16">
                     <h1 className="text-2xl font-bold">{user.username}</h1>
-                    <p className="text-gray-600 mt-1">{user.bio || "No bio available"}</p>
+
+                    {/* Bio section with edit functionality */}
+                    <div className="mt-3">
+                      {isEditingBio ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={editedBio}
+                            onChange={(e) => setEditedBio(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows={3}
+                            placeholder="Write something about yourself..."
+                          />
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={handleSaveBio}
+                              disabled={isSavingBio}
+                              className="flex items-center px-3 py-1 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-colors disabled:opacity-50"
+                            >
+                              <Save className="w-4 h-4 mr-1" />
+                              {isSavingBio ? "Saving..." : "Save"}
+                            </button>
+                            <button
+                              onClick={handleCancelEditBio}
+                              className="flex items-center px-3 py-1 bg-gray-200 text-gray-700 rounded-md text-sm hover:bg-gray-300 transition-colors"
+                            >
+                              <X className="w-4 h-4 mr-1" />
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start">
+                          <p className="text-gray-600 mt-1 flex-grow">{user.bio || "No bio available"}</p>
+                          {isOwnProfile && (
+                            <button
+                              onClick={handleEditBio}
+                              className="ml-2 text-blue-500 hover:text-blue-700 flex items-center text-sm"
+                            >
+                              <Pencil className="w-4 h-4 mr-1" />
+                              {user.bio ? "Edit" : "Add Bio"}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

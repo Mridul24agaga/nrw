@@ -13,6 +13,12 @@ interface AddMemoryFormProps {
   onMemoryAdded: (newMemory: string, imageUrl?: string) => void
 }
 
+interface MemoryObject {
+  content: string
+  imageUrl: string | null
+  createdAt: string
+}
+
 export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps) {
   const [content, setContent] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -115,7 +121,7 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
       if (userError) throw userError
 
       // Create memory object with content and optional image
-      const memoryObject = {
+      const memoryObject: MemoryObject = {
         content,
         imageUrl: imageUrl || null,
         createdAt: new Date().toISOString(),
@@ -131,20 +137,73 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
       if (fetchError) throw fetchError
 
       // Parse existing memories if they exist
-      let existingMemories = []
+      let existingMemories: MemoryObject[] = []
+
       try {
         if (currentData?.memory_message) {
-          // Check if memory_message is already an array of objects
-          if (typeof currentData.memory_message[0] === "object") {
-            existingMemories = currentData.memory_message
-          } else {
-            // Convert string memories to objects for backward compatibility
-            existingMemories = currentData.memory_message.map((memory: string) => ({
-              content: memory,
+          // Ensure we're working with an array
+          const memoryArray = Array.isArray(currentData.memory_message)
+            ? currentData.memory_message
+            : [currentData.memory_message]
+
+          existingMemories = memoryArray.map((memory: any) => {
+            // If memory is a string, it's an old format memory
+            if (typeof memory === "string") {
+              return {
+                content: memory,
+                imageUrl: null,
+                createdAt: new Date().toISOString(),
+              }
+            }
+
+            // If memory is already an object but might be stringified JSON
+            if (typeof memory === "object") {
+              // Check if it's a nested JSON structure that needs parsing
+              if (
+                memory.content &&
+                typeof memory.content === "string" &&
+                (memory.content.startsWith("{") || memory.content.includes('\\"'))
+              ) {
+                try {
+                  // Try to parse potentially nested JSON
+                  let parsedContent = memory.content
+
+                  // Keep parsing until we get a clean object
+                  while (
+                    typeof parsedContent === "string" &&
+                    (parsedContent.startsWith("{") || parsedContent.includes('\\"'))
+                  ) {
+                    parsedContent = JSON.parse(parsedContent)
+                  }
+
+                  // If we ended up with an object with the right structure, use it
+                  if (typeof parsedContent === "object" && parsedContent.content) {
+                    return {
+                      content: parsedContent.content,
+                      imageUrl: parsedContent.imageUrl || null,
+                      createdAt: parsedContent.createdAt || new Date().toISOString(),
+                    }
+                  }
+                } catch (e) {
+                  console.error("Error parsing nested memory:", e)
+                }
+              }
+
+              // Return the memory object with defaults for missing fields
+              return {
+                content: typeof memory.content === "string" ? memory.content : "",
+                imageUrl: memory.imageUrl || null,
+                createdAt: memory.createdAt || new Date().toISOString(),
+              }
+            }
+
+            // Fallback for unexpected formats
+            return {
+              content: String(memory),
               imageUrl: null,
               createdAt: new Date().toISOString(),
-            }))
-          }
+            }
+          })
         }
       } catch (parseError) {
         console.error("Error parsing existing memories:", parseError)

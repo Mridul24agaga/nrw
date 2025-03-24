@@ -9,6 +9,7 @@ interface Message {
   role: "user" | "bot" | "diary"
   content: string
   timestamp: number
+  id?: string
 }
 
 interface CompanionData {
@@ -17,6 +18,14 @@ interface CompanionData {
   messages: Message[]
   uses_left: number
   diary_mode: boolean
+}
+
+interface DiaryEntry {
+  id: string
+  user_id: string
+  content: string
+  timestamp: number
+  created_at: string
 }
 
 export default function VirtualCompanion() {
@@ -30,11 +39,16 @@ export default function VirtualCompanion() {
   const [description, setDescription] = useState("")
   const [message, setMessage] = useState("")
   const [currentMode, setCurrentMode] = useState<"chat" | "diary">("chat")
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
+  const [activeTab, setActiveTab] = useState<"diary" | "chat">("chat")
   const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchCompanionData()
-  }, [])
+    if (currentMode === "diary") {
+      fetchDiaryEntries()
+    }
+  }, [currentMode])
 
   const fetchCompanionData = async () => {
     const {
@@ -63,6 +77,28 @@ export default function VirtualCompanion() {
         diary_mode: data.companion_diary_mode,
       })
       setIsCreating(false)
+    }
+  }
+
+  const fetchDiaryEntries = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from("virtualcompanionsave")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("timestamp", { ascending: false })
+
+      if (error) throw error
+
+      setDiaryEntries(data || [])
+    } catch (error) {
+      console.error("Error fetching diary entries:", error)
+      setError("Failed to load diary entries. Please try again.")
     }
   }
 
@@ -117,10 +153,21 @@ export default function VirtualCompanion() {
     setIsLoading(true)
     setError(null)
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      setError("You must be logged in to send messages.")
+      setIsLoading(false)
+      return
+    }
+
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
     const newMessage: Message = {
       role: currentMode === "chat" ? "user" : "diary",
       content: message,
       timestamp: Date.now(),
+      id: messageId,
     }
 
     // Store the message text in case we need to restore it after an error
@@ -134,6 +181,21 @@ export default function VirtualCompanion() {
     setMessage("")
 
     try {
+      // If it's a diary entry, save it to the virtualcompanionsave table
+      if (currentMode === "diary") {
+        const { error: diaryError } = await supabase.from("virtualcompanionsave").insert({
+          id: messageId,
+          user_id: user.id,
+          content: currentMessage,
+          timestamp: Date.now(),
+        })
+
+        if (diaryError) throw diaryError
+
+        // Refresh diary entries
+        fetchDiaryEntries()
+      }
+
       if (currentMode === "chat") {
         const response = await fetch("/api/companion", {
           method: "POST",
@@ -157,6 +219,7 @@ export default function VirtualCompanion() {
             role: "bot",
             content: result.response || "Sorry, I couldn't generate a response.",
             timestamp: Date.now(),
+            id: `bot_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
           }
 
           setCompanionData((prev) => ({
@@ -169,18 +232,14 @@ export default function VirtualCompanion() {
         }
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        await supabase
-          .from("users")
-          .update({
-            companion_messages: companionData.messages,
-            companion_uses_left: companionData.uses_left,
-          })
-          .eq("id", user.id)
-      }
+      // Update the user's companion_messages in the database
+      await supabase
+        .from("users")
+        .update({
+          companion_messages: companionData.messages,
+          companion_uses_left: companionData.uses_left,
+        })
+        .eq("id", user.id)
 
       if (currentMode === "chat") {
         const moods = ["happy", "sad", "excited", "tired", "neutral"]
@@ -247,7 +306,7 @@ export default function VirtualCompanion() {
         )}
         <form onSubmit={handleCreateSubmit} className="space-y-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
               Companion Name
             </label>
             <input
@@ -257,12 +316,12 @@ export default function VirtualCompanion() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="Enter chatbot name"
             />
           </div>
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
               Companion Description
             </label>
             <textarea
@@ -272,7 +331,7 @@ export default function VirtualCompanion() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="Enter chatbot description (50 words max)"
             ></textarea>
             <p className="mt-2 text-sm text-gray-500">Words: {description.trim().split(/\s+/).length} / 50</p>
@@ -331,37 +390,77 @@ export default function VirtualCompanion() {
       {isSettingsOpen && (
         <div className="p-4 border-b">
           <h3 className="font-semibold mb-2">Chatbot Settings</h3>
-          {/* Settings content */}
+          <div className="flex items-center justify-between">
+            <span>Enable Diary Mode</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={companionData.diary_mode}
+                onChange={() => toggleSetting("diary_mode")}
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {currentMode === "diary" && (
+        <div className="border-b">
+          <div className="flex">
+            <button
+              className={`flex-1 py-2 text-center font-medium ${
+                activeTab === "diary" ? "border-b-2 border-indigo-500 text-indigo-600" : "text-gray-500"
+              }`}
+              onClick={() => setActiveTab("diary")}
+            >
+              My Diary
+            </button>
+          </div>
         </div>
       )}
 
       <div className="h-[calc(100vh-400px)] overflow-y-auto p-4 space-y-4">
-        {companionData.messages
-          .filter((message) => (currentMode === "chat" ? message.role !== "diary" : message.role === "diary"))
-          .map((message, index) => (
-            <div key={index} className={`flex items-start gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}>
-              <div className="h-8 w-8 rounded-full bg-gray-200 flex-shrink-0">
-                {message.role === "bot" ? (
-                  <div className="h-full w-full rounded-full bg-indigo-500 flex items-center justify-center">
-                    <span className="text-white text-sm font-semibold">
-                      {companionData.name.charAt(0).toUpperCase()}
-                    </span>
+        {currentMode === "chat"
+          ? // Chat mode - show chat messages
+            companionData.messages
+              .filter((message) => message.role !== "diary")
+              .map((message, index) => (
+                <div
+                  key={index}
+                  className={`flex items-start gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
+                >
+                  <div className="h-8 w-8 rounded-full flex-shrink-0">
+                    {message.role === "bot" ? (
+                      <div className="h-full w-full rounded-full bg-indigo-500 flex items-center justify-center">
+                        <span className="text-white text-sm font-semibold">
+                          {companionData.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="h-full w-full rounded-full bg-gray-400 flex items-center justify-center">
+                        <span className="text-white text-sm font-semibold">U</span>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="h-full w-full rounded-full bg-gray-400 flex items-center justify-center">
-                    <span className="text-white text-sm font-semibold">U</span>
+                  <div
+                    className={`rounded-lg p-3 max-w-[80%] ${
+                      message.role === "user" ? "bg-indigo-500 text-white" : "bg-gray-100"
+                    }`}
+                  >
+                    {message.content}
                   </div>
-                )}
+                </div>
+              ))
+          : // Diary mode - show diary entries from the dedicated table
+            diaryEntries.map((entry) => (
+              <div key={entry.id} className="border rounded-lg p-4 mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-sm text-gray-500">{new Date(entry.timestamp).toLocaleString()}</p>
+                </div>
+                <p>{entry.content}</p>
               </div>
-              <div
-                className={`rounded-lg p-3 max-w-[80%] ${
-                  message.role === "user" || message.role === "diary" ? "bg-indigo-500 text-white" : "bg-gray-100"
-                }`}
-              >
-                {message.content}
-              </div>
-            </div>
-          ))}
+            ))}
 
         {isLoading && (
           <div className="flex items-start gap-3">
@@ -397,17 +496,17 @@ export default function VirtualCompanion() {
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={toggleMode}
-            className="px-4 py-2 rounded-md bg-indigo-500 text-white flex items-center gap-2"
+            className="px-4 py-2 rounded-md bg-indigo-500 text-white flex items-center gap-2 hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
           >
             {currentMode === "chat" ? (
               <>
                 <MessageSquare size={20} />
-                Chat Mode
+                Diary Mode
               </>
             ) : (
               <>
                 <Book size={20} />
-                Diary Mode
+                Chat Mode
               </>
             )}
           </button>
@@ -415,6 +514,7 @@ export default function VirtualCompanion() {
             {currentMode === "chat" ? `${companionData.uses_left}/5 uses left` : "Diary entries are saved permanently"}
           </p>
         </div>
+
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
             type="text"

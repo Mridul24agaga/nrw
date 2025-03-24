@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { MessageCircle, Share2, ThumbsUp, Bookmark, Globe, Sparkles, Trash2, X, Send } from "lucide-react"
+import { MessageCircle, ThumbsUp, Trash2, X, Send } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { likeMemory, addMemoryComment, deleteMemory } from "@/actions/memory-actions"
@@ -50,15 +50,100 @@ export function MemoryCard({ memoryId, memorialId, memory, pageName, currentUser
 
   // Parse memory content on mount
   useEffect(() => {
-    if (typeof memory === "string") {
-      setContent(memory)
-      setImageUrl(null)
-      setCreatedAt(new Date().toISOString())
-    } else {
-      setContent(memory.content)
-      setImageUrl(memory.imageUrl)
-      setCreatedAt(memory.createdAt || new Date().toISOString())
+    // Function to recursively parse potentially nested JSON
+    const parseNestedJson = (data: any): MemoryContent => {
+      // If it's a string, try to parse it as JSON
+      if (typeof data === "string") {
+        try {
+          // Check if it looks like JSON
+          if (data.trim().startsWith("{") || data.includes('\\"')) {
+            const parsed = JSON.parse(data)
+            // Recursively parse the result if it's still a string that looks like JSON
+            if (typeof parsed === "string" && (parsed.trim().startsWith("{") || parsed.includes('\\"'))) {
+              return parseNestedJson(parsed)
+            }
+            // If it's an object with the expected structure, use it
+            if (typeof parsed === "object" && parsed !== null) {
+              if (parsed.content !== undefined) {
+                return {
+                  content: parsed.content || "",
+                  imageUrl: parsed.imageUrl || null,
+                  createdAt: parsed.createdAt || new Date().toISOString(),
+                }
+              } else if (parsed.imageUrl !== undefined) {
+                // Handle case where the object has imageUrl but not content
+                return {
+                  content: "",
+                  imageUrl: parsed.imageUrl,
+                  createdAt: parsed.createdAt || new Date().toISOString(),
+                }
+              }
+            }
+            // If we got here, the parsed result doesn't match our expected structure
+            return {
+              content: typeof parsed === "string" ? parsed : JSON.stringify(parsed),
+              imageUrl: null,
+              createdAt: new Date().toISOString(),
+            }
+          }
+        } catch (e) {
+          // If parsing fails, treat it as plain text
+          console.log("Failed to parse memory JSON:", e)
+        }
+        // Default for strings that aren't JSON
+        return {
+          content: data,
+          imageUrl: null,
+          createdAt: new Date().toISOString(),
+        }
+      }
+
+      // If it's already an object with content property
+      if (typeof data === "object" && data !== null) {
+        // Check if content might be nested JSON
+        if (typeof data.content === "string" && (data.content.trim().startsWith("{") || data.content.includes('\\"'))) {
+          try {
+            const parsedContent = JSON.parse(data.content)
+            // If parsedContent is an object with the right structure, use it
+            if (
+              typeof parsedContent === "object" &&
+              parsedContent !== null &&
+              (parsedContent.content !== undefined || parsedContent.imageUrl !== undefined)
+            ) {
+              return {
+                content: parsedContent.content || "",
+                imageUrl: parsedContent.imageUrl || data.imageUrl || null,
+                createdAt: parsedContent.createdAt || data.createdAt || new Date().toISOString(),
+              }
+            }
+          } catch (e) {
+            // If parsing fails, use the original content
+            console.log("Failed to parse nested content:", e)
+          }
+        }
+
+        // Use the object as is
+        return {
+          content: data.content || "",
+          imageUrl: data.imageUrl || null,
+          createdAt: data.createdAt || new Date().toISOString(),
+        }
+      }
+
+      // Default fallback
+      return {
+        content: String(data),
+        imageUrl: null,
+        createdAt: new Date().toISOString(),
+      }
     }
+
+    // Parse the memory data
+    const parsedMemory = parseNestedJson(memory)
+
+    setContent(parsedMemory.content)
+    setImageUrl(parsedMemory.imageUrl)
+    setCreatedAt(parsedMemory.createdAt)
   }, [memory])
 
   const formattedDate = new Date(createdAt).toLocaleDateString("en-US", {
@@ -297,8 +382,7 @@ export function MemoryCard({ memoryId, memorialId, memory, pageName, currentUser
       </div>
 
       <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-        <div className="flex space-x-4">
-        </div>
+        <div className="flex space-x-4"></div>
         <div className="flex items-center space-x-4">
           <button
             onClick={handleLike}

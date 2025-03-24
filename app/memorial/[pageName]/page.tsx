@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { CustomAvatar } from "@/components/custom-avatar"
 import { AvatarUploadDialog } from "@/components/avatar-upload-dialog"
 import { MemorialAvatarDialog } from "@/components/memorial-avatar-dialog"
-import { Pencil } from "lucide-react"
+import { Pencil, Save, X } from "lucide-react"
 
 // Define types for our data structures
 interface Memorial {
@@ -94,6 +94,11 @@ export default function MemorialPage() {
   const [virtualFlowers, setVirtualFlowers] = useState<VirtualFlower[]>([])
   const [isSendingFlower, setIsSendingFlower] = useState(false)
   const [isCurrentUserCreator, setIsCurrentUserCreator] = useState(false)
+
+  // New state for bio editing
+  const [isEditingBio, setIsEditingBio] = useState(false)
+  const [editedBio, setEditedBio] = useState("")
+  const [isSavingBio, setIsSavingBio] = useState(false)
 
   const supabase = createClientComponentClient()
 
@@ -338,6 +343,54 @@ export default function MemorialPage() {
     setMemories((prevMemories) => [...prevMemories, newMemory as (typeof prevMemories)[0]])
   }
 
+  // New function to handle editing bio
+  const handleEditBio = () => {
+    if (!memorial) return
+    setEditedBio(memorial.bio)
+    setIsEditingBio(true)
+  }
+
+  // New function to handle canceling bio edit
+  const handleCancelEditBio = () => {
+    setIsEditingBio(false)
+    setEditedBio("")
+  }
+
+  // New function to handle saving bio
+  const handleSaveBio = async () => {
+    if (!memorial || !editedBio.trim()) return
+
+    setIsSavingBio(true)
+    setError(null)
+
+    try {
+      // Update the bio in the memorialpages212515 table
+      const { error } = await supabase
+        .from("memorialpages212515")
+        .update({ bio: editedBio.trim() })
+        .eq("id", memorial.id)
+
+      if (error) throw error
+
+      // Update local state
+      setMemorial((prev) => ({
+        ...prev!,
+        bio: editedBio.trim(),
+      }))
+
+      setIsEditingBio(false)
+    } catch (err) {
+      console.error("Error updating bio:", err)
+      setError(
+        err instanceof Error
+          ? `Failed to update biography: ${err.message}`
+          : "Failed to update biography. Please try again.",
+      )
+    } finally {
+      setIsSavingBio(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">
@@ -497,8 +550,49 @@ export default function MemorialPage() {
                 </div>
 
                 <div className="prose max-w-none">
-                  <h2 className="text-2xl font-semibold mb-4 text-black">Biography</h2>
-                  <p className="text-black whitespace-pre-wrap">{memorial?.bio}</p>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-semibold text-black">Biography</h2>
+                    {isCurrentUserCreator && !isEditingBio && (
+                      <button
+                        onClick={handleEditBio}
+                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        <span>Edit</span>
+                      </button>
+                    )}
+                    {isEditingBio && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleCancelEditBio}
+                          className="flex items-center gap-1 text-gray-600 hover:text-gray-800"
+                        >
+                          <X className="h-4 w-4" />
+                          <span>Cancel</span>
+                        </button>
+                        <button
+                          onClick={handleSaveBio}
+                          disabled={isSavingBio}
+                          className="flex items-center gap-1 text-green-600 hover:text-green-800 disabled:opacity-50"
+                        >
+                          <Save className="h-4 w-4" />
+                          <span>{isSavingBio ? "Saving..." : "Save"}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {isEditingBio ? (
+                    <textarea
+                      value={editedBio}
+                      onChange={(e) => setEditedBio(e.target.value)}
+                      rows={6}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Write a biography..."
+                    ></textarea>
+                  ) : (
+                    <p className="text-black whitespace-pre-wrap">{memorial?.bio}</p>
+                  )}
                 </div>
 
                 {/* Virtual Flowers Section */}
