@@ -2,8 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { v4 as uuidv4 } from "uuid"
-import fs from "fs"
-import path from "path"
+import { put } from "@vercel/blob"
 
 export async function POST(request: NextRequest) {
   const supabase = createRouteHandlerClient({ cookies })
@@ -35,30 +34,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Only image files are allowed" }, { status: 400 })
     }
 
-    // Create directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), "public", "memorialpage")
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true })
-    }
-
     // Generate unique filename
     const fileExt = file.name.split(".").pop()
     const fileName = `${uuidv4()}.${fileExt}`
-    const filePath = path.join(uploadDir, fileName)
 
-    // Convert file to buffer and save to filesystem
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
+    // Upload to Vercel Blob Storage
+    const blob = await put(`memorialpage/${fileName}`, file, {
+      access: "public",
+      contentType: file.type,
+    })
 
-    // Write file to disk
-    fs.writeFileSync(filePath, buffer)
-
-    // Return the public URL path
-    const publicPath = `/memorialpage/${fileName}`
-
+    // Return the Blob Storage URL
     return NextResponse.json({
       success: true,
-      imageUrl: publicPath,
+      imageUrl: blob.url,
     })
   } catch (error) {
     console.error("Error uploading memory image:", error)
@@ -66,11 +55,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "8mb",
-    },
-  },
-}
+// Note: The config export is not needed with App Router
+// The bodyParser config was used in the Pages Router
 
