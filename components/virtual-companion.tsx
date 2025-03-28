@@ -292,6 +292,7 @@ export default function VirtualCompanion() {
 
   const toggleMode = () => {
     setCurrentMode(currentMode === "chat" ? "diary" : "chat")
+    setMessage("") // Clear the message input when switching modes
   }
 
   if (isCreating) {
@@ -521,7 +522,11 @@ export default function VirtualCompanion() {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder={currentMode === "chat" ? "Type your message..." : "Write in your diary..."}
-            disabled={(currentMode === "chat" && companionData.uses_left <= 0) || isLoading}
+            disabled={
+              (currentMode === "chat" && companionData.uses_left <= 0) ||
+              isLoading ||
+              (currentMode === "chat" && !companionData)
+            }
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
