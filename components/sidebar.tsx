@@ -29,7 +29,7 @@ export default function Sidebar() {
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
             >
               <Clock size={18} />
-              <span>Memories</span>
+              <span>Create Memorial</span>
             </Link>
 
             <Link
