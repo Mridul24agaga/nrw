@@ -17,6 +17,7 @@ interface CompanionData {
   description: string
   messages: Message[]
   uses_left: number
+  last_reset_time: number
   diary_mode: boolean
 }
 
@@ -44,10 +45,16 @@ export default function VirtualCompanion() {
   const supabase = createClientComponentClient()
 
   useEffect(() => {
-    fetchCompanionData()
+    fetchCompanionData().then(() => {
+      checkAndResetUses()
+    })
     if (currentMode === "diary") {
       fetchDiaryEntries()
     }
+
+    // Set up an interval to check for reset every minute
+    const resetInterval = setInterval(checkAndResetUses, 60 * 1000)
+    return () => clearInterval(resetInterval)
   }, [currentMode])
 
   const fetchCompanionData = async () => {
@@ -58,7 +65,9 @@ export default function VirtualCompanion() {
 
     const { data, error } = await supabase
       .from("users")
-      .select("companion_name, companion_description, companion_messages, companion_uses_left, companion_diary_mode")
+      .select(
+        "companion_name, companion_description, companion_messages, companion_uses_left, companion_diary_mode, companion_last_reset_time",
+      )
       .eq("id", user.id)
       .single()
 
@@ -74,9 +83,45 @@ export default function VirtualCompanion() {
         description: data.companion_description,
         messages: data.companion_messages || [],
         uses_left: data.companion_uses_left,
+        last_reset_time: data.companion_last_reset_time || Date.now(),
         diary_mode: data.companion_diary_mode,
       })
       setIsCreating(false)
+    }
+  }
+
+  const checkAndResetUses = async () => {
+    if (!companionData) return
+
+    // If 24 hours have passed since last reset and uses are not full
+    const twentyFourHoursMs = 24 * 60 * 60 * 1000
+    const timeSinceLastReset = Date.now() - companionData.last_reset_time
+
+    if (timeSinceLastReset >= twentyFourHoursMs && companionData.uses_left < 5) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
+
+      try {
+        const { error } = await supabase
+          .from("users")
+          .update({
+            companion_uses_left: 5,
+            companion_last_reset_time: Date.now(),
+          })
+          .eq("id", user.id)
+
+        if (error) throw error
+
+        setCompanionData((prev) => ({
+          ...prev!,
+          uses_left: 5,
+          last_reset_time: Date.now(),
+        }))
+      } catch (error) {
+        console.error("Error resetting uses:", error)
+      }
     }
   }
 
@@ -125,6 +170,7 @@ export default function VirtualCompanion() {
           companion_messages: [],
           companion_uses_left: 5,
           companion_diary_mode: false,
+          companion_last_reset_time: Date.now(),
         })
         .eq("id", user.id)
 
@@ -135,6 +181,7 @@ export default function VirtualCompanion() {
         description,
         messages: [],
         uses_left: 5,
+        last_reset_time: Date.now(),
         diary_mode: false,
       })
       setIsCreating(false)
@@ -238,6 +285,7 @@ export default function VirtualCompanion() {
         .update({
           companion_messages: companionData.messages,
           companion_uses_left: companionData.uses_left,
+          companion_last_reset_time: companionData.last_reset_time,
         })
         .eq("id", user.id)
 
