@@ -13,6 +13,8 @@ interface Message {
 }
 
 interface CompanionData {
+  id?: string
+  user_id: string
   name: string
   description: string
   messages: Message[]
@@ -45,82 +47,123 @@ export default function VirtualCompanion() {
   const supabase = createClientComponentClient()
 
   useEffect(() => {
+    // Fetch data and check for reset on mount
     fetchCompanionData().then(() => {
       checkAndResetUses()
     })
+
     if (currentMode === "diary") {
       fetchDiaryEntries()
     }
 
-    // Set up an interval to check for reset every minute
-    const resetInterval = setInterval(checkAndResetUses, 60 * 1000)
+    // Set up an interval to check for reset every 5 minutes
+    const resetInterval = setInterval(checkAndResetUses, 5 * 60 * 1000)
     return () => clearInterval(resetInterval)
   }, [currentMode])
 
   const fetchCompanionData = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
+    setError(null) // Clear any previous errors
 
-    const { data, error } = await supabase
-      .from("users")
-      .select(
-        "companion_name, companion_description, companion_messages, companion_uses_left, companion_diary_mode, companion_last_reset_time",
-      )
-      .eq("id", user.id)
-      .single()
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-    if (error) {
-      console.error("Error fetching companion data:", error)
-      setError("Failed to load companion data. Please try again.")
-      return
-    }
+      if (!user) {
+        console.log("No authenticated user found")
+        setError("You must be logged in to access your companion.")
+        return
+      }
 
-    if (data?.companion_name) {
+      console.log("Fetching companion data for user:", user.id)
+
+      // Query the virtual_companion table instead of users table
+      const { data, error } = await supabase.from("virtual_companion").select("*").eq("user_id", user.id).single()
+
+      if (error) {
+        console.error("Error fetching companion data:", error)
+        console.error("Error details:", JSON.stringify(error))
+
+        // Check for specific error types
+        if (error.code === "PGRST116") {
+          console.log("No companion found, user needs to create one")
+          setIsCreating(true)
+          return
+        } else {
+          setError(`Failed to load companion data: ${error.message || "Unknown error"}`)
+          return
+        }
+      }
+
+      if (!data) {
+        console.log("No companion data found, setting to creation mode")
+        setIsCreating(true)
+        return
+      }
+
+      console.log("Companion data retrieved successfully")
+
       setCompanionData({
-        name: data.companion_name,
-        description: data.companion_description,
-        messages: data.companion_messages || [],
-        uses_left: data.companion_uses_left,
-        last_reset_time: data.companion_last_reset_time || Date.now(),
-        diary_mode: data.companion_diary_mode,
+        id: data.id,
+        user_id: data.user_id,
+        name: data.name,
+        description: data.description,
+        messages: Array.isArray(data.messages) ? data.messages : [],
+        uses_left: data.uses_left || 5,
+        last_reset_time: data.last_reset_time || Date.now(),
+        diary_mode: data.diary_mode || false,
       })
       setIsCreating(false)
+    } catch (err) {
+      console.error("Unexpected error fetching companion data:", err)
+      setError("Connection error. Please check your internet and try again.")
     }
   }
 
   const checkAndResetUses = async () => {
-    if (!companionData) return
+    if (!companionData?.id) return
+
+    console.log("Checking if uses need to be reset...")
 
     // If 24 hours have passed since last reset and uses are not full
     const twentyFourHoursMs = 24 * 60 * 60 * 1000
     const timeSinceLastReset = Date.now() - companionData.last_reset_time
 
+    console.log(`Time since last reset: ${Math.floor(timeSinceLastReset / (60 * 60 * 1000))} hours`)
+    console.log(`Current uses left: ${companionData.uses_left}/5`)
+
     if (timeSinceLastReset >= twentyFourHoursMs && companionData.uses_left < 5) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
+      console.log("24 hours have passed since last reset. Resetting uses to 5...")
 
       try {
+        const currentTime = Date.now()
+
         const { error } = await supabase
-          .from("users")
+          .from("virtual_companion")
           .update({
-            companion_uses_left: 5,
-            companion_last_reset_time: Date.now(),
+            uses_left: 5,
+            last_reset_time: currentTime,
           })
-          .eq("id", user.id)
+          .eq("id", companionData.id)
 
-        if (error) throw error
+        if (error) {
+          console.error("Error resetting uses:", error)
+          throw error
+        }
 
-        setCompanionData((prev) => ({
-          ...prev!,
-          uses_left: 5,
-          last_reset_time: Date.now(),
-        }))
+        console.log("Uses successfully reset to 5")
+
+        // Update local state
+        setCompanionData((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            uses_left: 5,
+            last_reset_time: currentTime,
+          }
+        })
       } catch (error) {
-        console.error("Error resetting uses:", error)
+        console.error("Failed to reset uses:", error)
       }
     }
   }
@@ -156,27 +199,32 @@ export default function VirtualCompanion() {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) {
-      setError("You must be logged in to create a chatbot.")
+      setError("You must be logged in to create a companion.")
       setIsLoading(false)
       return
     }
 
     try {
-      const { error } = await supabase
-        .from("users")
-        .update({
-          companion_name: name,
-          companion_description: description,
-          companion_messages: [],
-          companion_uses_left: 5,
-          companion_diary_mode: false,
-          companion_last_reset_time: Date.now(),
+      // Insert a new record into the virtual_companion table
+      const { data, error } = await supabase
+        .from("virtual_companion")
+        .insert({
+          user_id: user.id,
+          name: name,
+          description: description,
+          messages: [],
+          uses_left: 5,
+          diary_mode: false,
+          last_reset_time: Date.now(),
         })
-        .eq("id", user.id)
+        .select()
+        .single()
 
       if (error) throw error
 
       setCompanionData({
+        id: data.id,
+        user_id: user.id,
         name,
         description,
         messages: [],
@@ -186,8 +234,8 @@ export default function VirtualCompanion() {
       })
       setIsCreating(false)
     } catch (error) {
-      console.error("Error creating chatbot:", error)
-      setError("Failed to create chatbot. Please try again.")
+      console.error("Error creating companion:", error)
+      setError("Failed to create companion. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -220,10 +268,14 @@ export default function VirtualCompanion() {
     // Store the message text in case we need to restore it after an error
     const currentMessage = message
 
+    // Update state with the new message
+    const updatedMessages = [...companionData.messages, newMessage]
+    const newUsesLeft = currentMode === "chat" ? companionData.uses_left - 1 : companionData.uses_left
+
     setCompanionData((prev) => ({
       ...prev!,
-      messages: [...prev!.messages, newMessage],
-      uses_left: currentMode === "chat" ? prev!.uses_left - 1 : prev!.uses_left,
+      messages: updatedMessages,
+      uses_left: newUsesLeft,
     }))
     setMessage("")
 
@@ -239,11 +291,16 @@ export default function VirtualCompanion() {
 
         if (diaryError) throw diaryError
 
+        // Save the message to the virtual_companion table
+        await saveMessagesToDatabase(updatedMessages, newUsesLeft)
+
         // Refresh diary entries
         fetchDiaryEntries()
-      }
+      } else {
+        // For chat mode, first save the user message
+        await saveMessagesToDatabase(updatedMessages, newUsesLeft)
 
-      if (currentMode === "chat") {
+        // Then get the bot response
         const response = await fetch("/api/companion", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -260,36 +317,26 @@ export default function VirtualCompanion() {
           throw new Error(`Failed to get response: ${response.status} ${errorText}`)
         }
 
-        try {
-          const result = await response.json()
-          const botMessage: Message = {
-            role: "bot",
-            content: result.response || "Sorry, I couldn't generate a response.",
-            timestamp: Date.now(),
-            id: `bot_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-          }
-
-          setCompanionData((prev) => ({
-            ...prev!,
-            messages: [...prev!.messages, botMessage],
-          }))
-        } catch (jsonError) {
-          console.error("Error parsing JSON response:", jsonError)
-          throw new Error("Received invalid response from server. Please try again.")
+        // Process the bot response
+        const result = await response.json()
+        const botMessage: Message = {
+          role: "bot",
+          content: result.response || "Sorry, I couldn't generate a response.",
+          timestamp: Date.now(),
+          id: `bot_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         }
-      }
 
-      // Update the user's companion_messages in the database
-      await supabase
-        .from("users")
-        .update({
-          companion_messages: companionData.messages,
-          companion_uses_left: companionData.uses_left,
-          companion_last_reset_time: companionData.last_reset_time,
-        })
-        .eq("id", user.id)
+        // Update state with the bot message
+        const messagesWithBotReply = [...updatedMessages, botMessage]
+        setCompanionData((prev) => ({
+          ...prev!,
+          messages: messagesWithBotReply,
+        }))
 
-      if (currentMode === "chat") {
+        // Save the updated messages including the bot reply
+        await saveMessagesToDatabase(messagesWithBotReply, newUsesLeft)
+
+        // Update mood randomly
         const moods = ["happy", "sad", "excited", "tired", "neutral"]
         setMood(moods[Math.floor(Math.random() * moods.length)])
       }
@@ -312,19 +359,39 @@ export default function VirtualCompanion() {
     }
   }
 
+  // Helper function to save messages to the database
+  const saveMessagesToDatabase = async (messages: Message[], usesLeft: number) => {
+    if (!companionData?.id) return
+
+    try {
+      const { error } = await supabase
+        .from("virtual_companion")
+        .update({
+          messages: messages,
+          uses_left: usesLeft,
+        })
+        .eq("id", companionData.id)
+
+      if (error) {
+        console.error("Error saving messages to database:", error)
+        throw error
+      }
+    } catch (error) {
+      console.error("Failed to save messages:", error)
+      setError("Failed to save your conversation. Your messages may not persist if you refresh.")
+    }
+  }
+
   const toggleSetting = async (setting: "diary_mode") => {
     if (!companionData) return
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
-
     const newValue = !companionData[setting]
-    const updateData = { companion_diary_mode: newValue }
 
     try {
-      const { error } = await supabase.from("users").update(updateData).eq("id", user.id)
+      const { error } = await supabase
+        .from("virtual_companion")
+        .update({ diary_mode: newValue })
+        .eq("id", companionData.id)
 
       if (error) throw error
 
@@ -343,6 +410,10 @@ export default function VirtualCompanion() {
     setMessage("") // Clear the message input when switching modes
   }
 
+  const manualCheckReset = () => {
+    checkAndResetUses()
+  }
+
   if (isCreating) {
     return (
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
@@ -351,6 +422,12 @@ export default function VirtualCompanion() {
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
             <p className="font-bold">Error</p>
             <p>{error}</p>
+            <button
+              onClick={() => fetchCompanionData()}
+              className="mt-2 text-sm font-medium text-red-700 underline hover:text-red-800"
+            >
+              Try again
+            </button>
           </div>
         )}
         <form onSubmit={handleCreateSubmit} className="space-y-4">
@@ -366,7 +443,7 @@ export default function VirtualCompanion() {
               onChange={(e) => setName(e.target.value)}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Enter chatbot name"
+              placeholder="Enter companion name"
             />
           </div>
           <div>
@@ -381,7 +458,7 @@ export default function VirtualCompanion() {
               onChange={(e) => setDescription(e.target.value)}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Enter chatbot description (50 words max)"
+              placeholder="Enter companion description (50 words max)"
             ></textarea>
             <p className="mt-2 text-sm text-gray-500">Words: {description.trim().split(/\s+/).length} / 50</p>
           </div>
@@ -438,7 +515,7 @@ export default function VirtualCompanion() {
 
       {isSettingsOpen && (
         <div className="p-4 border-b">
-          <h3 className="font-semibold mb-2">Chatbot Settings</h3>
+          <h3 className="font-semibold mb-2">Companion Settings</h3>
           <div className="flex items-center justify-between">
             <span>Enable Diary Mode</span>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -559,7 +636,7 @@ export default function VirtualCompanion() {
               </>
             )}
           </button>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 cursor-pointer" onClick={manualCheckReset}>
             {currentMode === "chat" ? `${companionData.uses_left}/5 uses left` : "Diary entries are saved permanently"}
           </p>
         </div>
