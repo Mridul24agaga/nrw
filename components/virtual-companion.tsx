@@ -37,6 +37,7 @@ export default function VirtualCompanion() {
   const [mood, setMood] = useState("neutral")
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [resetTimeInfo, setResetTimeInfo] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
@@ -63,6 +64,7 @@ export default function VirtualCompanion() {
 
   const fetchCompanionData = async () => {
     setError(null) // Clear any previous errors
+    setResetTimeInfo(null) // Clear any previous reset time info
 
     try {
       const {
@@ -162,6 +164,9 @@ export default function VirtualCompanion() {
             last_reset_time: currentTime,
           }
         })
+
+        // Clear any reset time info since we've reset
+        setResetTimeInfo(null)
       } catch (error) {
         console.error("Failed to reset uses:", error)
       }
@@ -247,6 +252,7 @@ export default function VirtualCompanion() {
 
     setIsLoading(true)
     setError(null)
+    setResetTimeInfo(null)
 
     const {
       data: { user },
@@ -311,10 +317,30 @@ export default function VirtualCompanion() {
           }),
         })
 
-        // Better error handling
         if (!response.ok) {
-          const errorText = await response.text().catch(() => "Unknown error")
-          throw new Error(`Failed to get response: ${response.status} ${errorText}`)
+          // Try to parse the error response
+          let errorData
+          try {
+            errorData = await response.json()
+          } catch (e) {
+            // If we can't parse JSON, use text
+            const errorText = await response.text()
+            throw new Error(`Failed to get response: ${response.status} ${errorText}`)
+          }
+
+          // Handle the specific case of no uses left with reset time info
+          if (response.status === 403 && errorData.error === "No uses left") {
+            if (errorData.message) {
+              setResetTimeInfo(errorData.message)
+            } else if (errorData.resetInHours) {
+              setResetTimeInfo(
+                `You've used all your daily messages. Usage will reset in ${errorData.resetInHours} hours.`,
+              )
+            }
+            throw new Error("No uses left")
+          }
+
+          throw new Error(`Failed to get response: ${response.status} ${errorData.error || JSON.stringify(errorData)}`)
         }
 
         // Process the bot response
@@ -342,7 +368,11 @@ export default function VirtualCompanion() {
       }
     } catch (error) {
       console.error("Error:", error)
-      setError(error instanceof Error ? error.message : "Failed to send message. Please try again.")
+
+      // Only set the general error if we don't have a specific reset time info
+      if (!resetTimeInfo) {
+        setError(error instanceof Error ? error.message : "Failed to send message. Please try again.")
+      }
 
       // Restore the message so the user doesn't lose their input
       setMessage(currentMessage)
@@ -412,6 +442,12 @@ export default function VirtualCompanion() {
 
   const manualCheckReset = () => {
     checkAndResetUses()
+  }
+
+  const getTimeUntilReset = () => {
+    if (!companionData) return 0
+    const resetTime = companionData.last_reset_time + 24 * 60 * 60 * 1000
+    return Math.max(0, Math.ceil((resetTime - Date.now()) / (60 * 60 * 1000)))
   }
 
   if (isCreating) {
@@ -619,6 +655,14 @@ export default function VirtualCompanion() {
             <p>{error}</p>
           </div>
         )}
+
+        {resetTimeInfo && (
+          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+            <p className="font-bold">Usage Limit Reached</p>
+            <p>{resetTimeInfo}</p>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={toggleMode}
@@ -637,7 +681,18 @@ export default function VirtualCompanion() {
             )}
           </button>
           <p className="text-sm text-gray-500 cursor-pointer" onClick={manualCheckReset}>
-            {currentMode === "chat" ? `${companionData.uses_left}/5 uses left` : "Diary entries are saved permanently"}
+            {currentMode === "chat" ? (
+              companionData.uses_left > 0 ? (
+                `${companionData.uses_left}/5 uses left`
+              ) : (
+                <>
+                  {`0/5 uses left - `}
+                  <span className="text-indigo-600">Resets in {getTimeUntilReset()} hours</span>
+                </>
+              )
+            ) : (
+              "Diary entries are saved permanently"
+            )}
           </p>
         </div>
 
@@ -672,4 +727,3 @@ export default function VirtualCompanion() {
     </div>
   )
 }
-

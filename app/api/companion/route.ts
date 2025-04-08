@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 
 export async function POST(request: Request) {
   try {
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     // Get companion data to check remaining uses
     const { data: companionData, error: companionError } = await supabase
       .from("virtual_companion")
-      .select("uses_left")
+      .select("uses_left, last_reset_time, name")
       .eq("user_id", user.id)
       .single()
 
@@ -49,7 +50,20 @@ export async function POST(request: Request) {
     }
 
     if (companionData.uses_left <= 0) {
-      return NextResponse.json({ error: "No uses left" }, { status: 403 })
+      // Calculate time until reset
+      const lastResetTime = companionData.last_reset_time || Date.now()
+      const resetTime = new Date(lastResetTime + 24 * 60 * 60 * 1000)
+      const timeUntilReset = Math.max(0, Math.ceil((resetTime.getTime() - Date.now()) / (60 * 60 * 1000)))
+
+      return NextResponse.json(
+        {
+          error: "No uses left",
+          resetTime: resetTime.toISOString(),
+          resetInHours: timeUntilReset,
+          message: `You've used all your daily messages. Usage will reset in ${timeUntilReset} hours.`,
+        },
+        { status: 403 },
+      )
     }
 
     // Parse the request body
@@ -60,9 +74,43 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Here you would typically call an AI service like OpenAI
-    // For this example, we'll simulate a response
-    const response = generateResponse(prompt, description, mood)
+    // Get Gemini API key from environment variables
+    const geminiApiKey = process.env.GEMINI_API_KEY
+    if (!geminiApiKey) {
+      console.error("GEMINI_API_KEY is not set in environment variables")
+      return NextResponse.json({ error: "API configuration error" }, { status: 500 })
+    }
+
+    // Initialize Gemini API
+    const genAI = new GoogleGenerativeAI(geminiApiKey)
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" })
+
+    // Create a system prompt that describes the companion's personality and current mood
+    const systemPrompt = `
+      You are a virtual companion named ${companionData.name}. 
+      Your personality: ${description}
+      Current mood: ${mood}
+      
+      Respond in a natural, conversational way that reflects your personality and current mood.
+      Keep responses concise (1-3 sentences) and engaging.
+      Don't introduce yourself in every message or use formal language like "I'm here to assist you."
+      Respond as if you're texting with a friend.
+    `
+
+    // Generate response using Gemini
+    const result = await model.generateContent({
+      contents: [
+        { role: "user", parts: [{ text: systemPrompt }] },
+        { role: "model", parts: [{ text: "I understand. I'll respond naturally as this character." }] },
+        { role: "user", parts: [{ text: prompt }] },
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 150,
+      },
+    })
+
+    const response = result.response.text()
 
     // Update the companion's remaining uses
     const { error: updateError } = await supabase
@@ -86,29 +134,3 @@ export async function POST(request: Request) {
     )
   }
 }
-
-// Simple response generator function (replace with actual AI integration)
-function generateResponse(prompt: string, description: string, mood: string): string {
-  const moods: Record<string, string[]> = {
-    happy: ["😊", "🙂", "Great!", "Wonderful!", "I'm so happy to hear that!"],
-    sad: ["😔", "🙁", "I understand...", "That's tough...", "I'm here for you"],
-    excited: ["🎉", "😃", "That's amazing!", "Wow!", "I'm so excited!"],
-    tired: ["😴", "🥱", "I see...", "Hmm...", "Interesting..."],
-    neutral: ["🤔", "👍", "I understand", "Makes sense", "I see what you mean"],
-  }
-
-  const moodPhrases = moods[mood] || moods.neutral
-  const randomMoodPhrase = moodPhrases[Math.floor(Math.random() * moodPhrases.length)]
-
-  // Simple response based on prompt keywords
-  if (prompt.toLowerCase().includes("hello") || prompt.toLowerCase().includes("hi")) {
-    return `${randomMoodPhrase} Hello there! How can I help you today?`
-  } else if (prompt.toLowerCase().includes("how are you")) {
-    return `${randomMoodPhrase} I'm ${mood}! Thanks for asking. How about you?`
-  } else if (prompt.toLowerCase().includes("help")) {
-    return `${randomMoodPhrase} I'd be happy to help! What do you need assistance with?`
-  } else {
-    return `${randomMoodPhrase} I'm here to chat with you based on my description: "${description.substring(0, 50)}${description.length > 50 ? "..." : ""}". What would you like to talk about?`
-  }
-}
-
