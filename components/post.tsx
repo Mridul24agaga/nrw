@@ -5,8 +5,6 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import Image from "next/image"
 import { PostActions } from "./post-actions"
 import { FollowButton } from "./follow-button"
-import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card"
-import { Separator } from "@/components/ui/seperator"
 import { formatDistanceToNow } from "date-fns"
 import { CustomAvatar } from "./custom-avatar"
 import type { User } from "@/lib/types" // Import the actual User type
@@ -37,6 +35,30 @@ export function Post({ post }: PostProps) {
   const [followerCount, setFollowerCount] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false)
 
+  // Function to fetch like and bookmark status
+  const fetchUserInteractions = async (userId: string) => {
+    if (!userId) return
+
+    const [userLike, userBookmark] = await Promise.all([
+      supabase.from("post_likes").select().eq("post_id", post.id).eq("user_id", userId).single(),
+      supabase.from("post_bookmarks").select().eq("post_id", post.id).eq("user_id", userId).single(),
+    ])
+
+    setIsLiked(!!userLike.data)
+    setIsBookmarked(!!userBookmark.data)
+  }
+
+  // Function to fetch counts
+  const fetchCounts = async () => {
+    const [likesResult, commentsResult] = await Promise.all([
+      supabase.from("post_likes").select("*", { count: "exact" }).eq("post_id", post.id),
+      supabase.from("post_comments").select("*", { count: "exact" }).eq("post_id", post.id),
+    ])
+
+    setLikeCount(likesResult.count ?? 0)
+    setCommentCount(commentsResult.count ?? 0)
+  }
+
   useEffect(() => {
     async function fetchData() {
       const {
@@ -44,40 +66,77 @@ export function Post({ post }: PostProps) {
       } = await supabase.auth.getUser()
       setUser(user)
 
-      // Use Promise.all to fetch all data concurrently
-      const [likesResult, commentsResult, userLike, userBookmark] = await Promise.all([
-        supabase.from("post_likes").select("*", { count: "exact" }).eq("post_id", post.id),
-        supabase.from("post_comments").select("*", { count: "exact" }).eq("post_id", post.id),
-        supabase.from("post_likes").select().eq("post_id", post.id).eq("user_id", user?.id).single(),
-        supabase.from("post_bookmarks").select().eq("post_id", post.id).eq("user_id", user?.id).single(),
-      ])
+      if (user) {
+        await fetchUserInteractions(user.id)
+      }
 
-      // Handle the count safely, ensuring we always set a number
-      setLikeCount(likesResult.count ?? 0)
-      setCommentCount(commentsResult.count ?? 0)
-      setIsLiked(!!userLike?.data)
-      setIsBookmarked(!!userBookmark?.data)
+      await fetchCounts()
     }
 
     fetchData()
+
+    // Set up real-time subscriptions for likes and comments
+    const likesSubscription = supabase
+      .channel("post-likes-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "post_likes", filter: `post_id=eq.${post.id}` },
+        (payload) => {
+          // Refresh counts and user interaction status when likes change
+          fetchCounts()
+          if (user?.id) {
+            fetchUserInteractions(user.id)
+          }
+        },
+      )
+      .subscribe()
+
+    const commentsSubscription = supabase
+      .channel("post-comments-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "post_comments", filter: `post_id=eq.${post.id}` },
+        () => {
+          fetchCounts()
+        },
+      )
+      .subscribe()
+
+    // Clean up subscriptions
+    return () => {
+      supabase.removeChannel(likesSubscription)
+      supabase.removeChannel(commentsSubscription)
+    }
   }, [supabase, post.id])
 
   const username = post.user.username || "Anonymous"
 
   // Create a properly typed user object for CustomAvatar
-  // Using type assertion to handle the missing required fields
   const avatarUser = {
     id: post.user.id || "",
     username: post.user.username,
     avatar_url: post.user.avatar_url,
     bio: null,
-    created_at: post.created_at, // Use the post's created_at as a fallback
+    created_at: post.created_at,
     email: "",
   } as User
 
+  // Handle like state changes from PostActions
+  const handleLikeChange = (newIsLiked: boolean) => {
+    setIsLiked(newIsLiked)
+    // Update count immediately for better UX
+    setLikeCount((prev) => (newIsLiked ? prev + 1 : Math.max(0, prev - 1)))
+  }
+
+  // Handle bookmark state changes
+  const handleBookmarkChange = (newIsBookmarked: boolean) => {
+    setIsBookmarked(newIsBookmarked)
+  }
+
   return (
-    <Card className="w-full max-w-2xl mx-auto bg-white shadow-sm hover:bg-slate-50/50 transition-colors px-4">
-      <CardHeader className="p-3 sm:p-4 px-0">
+    <div className="w-full max-w-2xl mx-auto bg-white shadow-sm hover:bg-slate-50/50 transition-colors px-4 rounded-lg border border-gray-200">
+      {/* Header */}
+      <div className="p-3 sm:p-4 px-0">
         <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 border-2 border-primary rounded-full overflow-hidden">
@@ -92,8 +151,10 @@ export function Post({ post }: PostProps) {
           </div>
           {user?.id !== post.user_id && <FollowButton userId={post.user_id} initialIsFollowing={isFollowing} />}
         </div>
-      </CardHeader>
-      <CardContent className="p-3 sm:p-4 px-0">
+      </div>
+
+      {/* Content */}
+      <div className="p-3 sm:p-4 px-0">
         <p className="text-sm leading-relaxed text-black whitespace-pre-wrap break-words">{post.content}</p>
         {post.image_url && (
           <div className="mt-3 rounded-lg overflow-hidden">
@@ -106,9 +167,11 @@ export function Post({ post }: PostProps) {
             />
           </div>
         )}
-      </CardContent>
-      <CardFooter className="p-3 sm:p-4 pt-0 px-0 flex flex-col items-start space-y-4">
-        <Separator className="w-full" />
+      </div>
+
+      {/* Footer */}
+      <div className="p-3 sm:p-4 pt-0 px-0 flex flex-col items-start space-y-4">
+        <hr className="w-full border-t border-gray-200" />
         <PostActions
           postId={post.id}
           initialLikeCount={likeCount}
@@ -117,9 +180,10 @@ export function Post({ post }: PostProps) {
           isBookmarked={isBookmarked}
           postUserId={post.user_id}
           currentUserId={user?.id}
+          onLikeChange={handleLikeChange}
+          onBookmarkChange={handleBookmarkChange}
         />
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   )
 }
-

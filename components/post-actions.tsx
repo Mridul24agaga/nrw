@@ -14,6 +14,9 @@ interface PostActionsProps {
   isBookmarked: boolean
   postUserId: string
   currentUserId: string | undefined
+  // Add new callback props
+  onLikeChange?: (isLiked: boolean) => void
+  onBookmarkChange?: (isBookmarked: boolean) => void
 }
 
 export function PostActions({
@@ -24,6 +27,8 @@ export function PostActions({
   isBookmarked,
   postUserId,
   currentUserId,
+  onLikeChange,
+  onBookmarkChange,
 }: PostActionsProps) {
   const [likeCount, setLikeCount] = useState(initialLikeCount)
   const [commentCount, setCommentCount] = useState(initialCommentCount)
@@ -35,6 +40,14 @@ export function PostActions({
   const [isDeleting, setIsDeleting] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+
+  // Update local state when props change
+  useEffect(() => {
+    setLiked(isLiked)
+    setBookmarked(isBookmarked)
+    setLikeCount(initialLikeCount)
+    setCommentCount(initialCommentCount)
+  }, [isLiked, isBookmarked, initialLikeCount, initialCommentCount])
 
   // Check if current user is the post author
   const isAuthor = currentUserId === postUserId
@@ -54,17 +67,41 @@ export function PostActions({
   }, [])
 
   const handleLike = async () => {
-    const result = await toggleLike(postId)
-    if (result.success) {
-      setLiked(!liked)
-      setLikeCount((prev) => (liked ? prev - 1 : prev + 1))
+    if (!currentUserId) return // Prevent action if not logged in
+
+    try {
+      const result = await toggleLike(postId)
+      if (result.success) {
+        const newLikedState = !liked
+        setLiked(newLikedState)
+        setLikeCount((prev) => (newLikedState ? prev + 1 : Math.max(0, prev - 1)))
+
+        // Call the callback to update parent component
+        if (onLikeChange) {
+          onLikeChange(newLikedState)
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling like:", error)
     }
   }
 
   const handleBookmark = async () => {
-    const result = await toggleBookmark(postId)
-    if (result.success) {
-      setBookmarked(!bookmarked)
+    if (!currentUserId) return // Prevent action if not logged in
+
+    try {
+      const result = await toggleBookmark(postId)
+      if (result.success) {
+        const newBookmarkedState = !bookmarked
+        setBookmarked(newBookmarkedState)
+
+        // Call the callback to update parent component
+        if (onBookmarkChange) {
+          onBookmarkChange(newBookmarkedState)
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling bookmark:", error)
     }
   }
 
@@ -93,7 +130,7 @@ export function PostActions({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={handleLike} className="flex items-center gap-1 text-black">
+          <button onClick={handleLike} className="flex items-center gap-1 text-black" disabled={!currentUserId}>
             <Heart className={liked ? "fill-current text-red-500" : ""} />
             <span>{likeCount}</span>
           </button>
@@ -101,7 +138,7 @@ export function PostActions({
             <MessageCircle className={isCommentSectionOpen ? "text-blue-500" : ""} />
             <span>{commentCount}</span>
           </button>
-          <button onClick={handleBookmark} className="flex items-center gap-1 text-black">
+          <button onClick={handleBookmark} className="flex items-center gap-1 text-black" disabled={!currentUserId}>
             <Bookmark className={bookmarked ? "fill-current text-yellow-500" : ""} />
           </button>
         </div>
@@ -170,4 +207,3 @@ export function PostActions({
     </div>
   )
 }
-
