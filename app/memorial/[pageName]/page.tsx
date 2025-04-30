@@ -481,7 +481,7 @@ export default function MemorialPage() {
                 <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
                   <h1 className="text-4xl font-bold mb-2">{memorial?.name}</h1>
                   <p className="text-lg opacity-90">
-                    {memorial?.date_of_passing &&
+                    Date of Passing: {memorial?.date_of_passing &&
                       new Date(memorial.date_of_passing).toLocaleDateString(undefined, {
                         year: "numeric",
                         month: "long",
