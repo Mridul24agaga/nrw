@@ -130,7 +130,7 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <div className="cursor-pointer">{children}</div>
+        <div className="cursor-pointer z-10 relative">{children}</div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -140,7 +140,7 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
         <div className="space-y-4">
           {/* Preview */}
           <div className="flex justify-center">
-            <div className="relative h-32 w-32 rounded-full overflow-hidden border-2 border-gray-200">
+            <div className="relative h-32 w-32 rounded-full overflow-hidden border-2 border-gray-200 z-10">
               {previewUrl ? (
                 <Image src={previewUrl || "/placeholder.svg"} alt={memorialName} fill className="object-cover" />
               ) : (
@@ -205,4 +205,3 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
     </Dialog>
   )
 }
-

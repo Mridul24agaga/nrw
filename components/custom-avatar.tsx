@@ -58,7 +58,7 @@ export function CustomAvatar({ user, size = 40, className = "", onClick }: Custo
 
     return (
       <div
-        className={`relative overflow-hidden ${className}`}
+        className={`relative overflow-hidden z-10 ${className}`}
         style={{
           width: size,
           height: size,
@@ -85,7 +85,7 @@ export function CustomAvatar({ user, size = 40, className = "", onClick }: Custo
   // Otherwise, show initials
   return (
     <div
-      className={`flex items-center justify-center ${className}`}
+      className={`flex items-center justify-center z-10 ${className}`}
       style={{
         width: size,
         height: size,
@@ -102,4 +102,3 @@ export function CustomAvatar({ user, size = 40, className = "", onClick }: Custo
     </div>
   )
 }
-

@@ -166,7 +166,7 @@ export default function SignUp() {
             />
             <label htmlFor="terms" className="ml-2 block text-sm text-black">
               I agree to the{" "}
-              <Link href="/terms" className="text-green-600 hover:text-green-500">
+              <Link href="/legal" className="text-green-600 hover:text-green-500">
                 terms and conditions
               </Link>
             </label>

@@ -133,57 +133,91 @@ export function Post({ post }: PostProps) {
     setIsBookmarked(newIsBookmarked)
   }
 
+  // Format timestamp for better mobile display
+  const formatTimestamp = (date: Date) => {
+    const now = new Date()
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+
+    if (diffInHours < 24) {
+      // For recent posts, show hours or minutes
+      return formatDistanceToNow(date, { addSuffix: false })
+    } else {
+      // For older posts, show date in MMM D format
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    }
+  }
+
   return (
-    <div className="w-full max-w-2xl mx-auto bg-white shadow-sm hover:bg-slate-50/50 transition-colors px-4 rounded-lg border border-gray-200">
-      {/* Header */}
-      <div className="p-3 sm:p-4 px-0">
-        <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 border-2 border-primary rounded-full overflow-hidden">
-              <CustomAvatar user={avatarUser} size={40} className="border-none" />
+    <article className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
+      <div className="px-3 py-3 sm:px-4">
+        <div className="flex">
+          {/* Left column - Avatar */}
+          <div className="flex-shrink-0 mr-2 sm:mr-3">
+            <CustomAvatar user={avatarUser} size={40} className="rounded-full" />
+          </div>
+
+          {/* Right column - Content */}
+          <div className="flex-1 min-w-0">
+            {/* Header row with username and follow button */}
+            <div className="flex items-start justify-between">
+              <div className="flex items-center text-sm">
+                <span className="font-bold text-gray-900 hover:underline truncate max-w-[120px] sm:max-w-none">
+                  {username}
+                </span>
+                {/* Only show date on desktop */}
+                <div className="hidden sm:flex items-center">
+                  <span className="text-gray-500 mx-1">·</span>
+                  <span className="text-gray-500 hover:underline text-sm">
+                    {formatTimestamp(new Date(post.created_at))}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                {/* Follow button - only show if not the current user */}
+                {user?.id !== post.user_id && <FollowButton userId={post.user_id} initialIsFollowing={isFollowing} />}
+              </div>
             </div>
-            <div className="flex flex-col">
-              <p className="font-semibold text-sm text-black">{username}</p>
-              <p className="text-xs text-black">
-                {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-              </p>
+
+            {/* Username for mobile only */}
+            {/* <div className="xs:hidden text-gray-500 text-xs mb-1">@{username.toLowerCase().replace(/\s/g, "")}</div> */}
+
+            {/* Post content */}
+            <div className="mt-1 text-gray-900 text-sm sm:text-base">
+              <p className="whitespace-pre-wrap break-words leading-normal">{post.content}</p>
+            </div>
+
+            {/* Post image if any */}
+            {post.image_url && (
+              <div className="mt-2 sm:mt-3 rounded-xl sm:rounded-2xl overflow-hidden border border-gray-200">
+                <Image
+                  src={post.image_url || "/placeholder.svg"}
+                  alt="Post image"
+                  width={600}
+                  height={400}
+                  className="object-cover w-full max-h-[300px] sm:max-h-[500px]"
+                  priority={true}
+                />
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="mt-2 sm:mt-3 flex justify-between">
+              <PostActions
+                postId={post.id}
+                initialLikeCount={likeCount}
+                initialCommentCount={commentCount}
+                isLiked={isLiked}
+                isBookmarked={isBookmarked}
+                postUserId={post.user_id}
+                currentUserId={user?.id}
+                onLikeChange={handleLikeChange}
+                onBookmarkChange={handleBookmarkChange}
+              />
             </div>
           </div>
-          {user?.id !== post.user_id && <FollowButton userId={post.user_id} initialIsFollowing={isFollowing} />}
         </div>
       </div>
-
-      {/* Content */}
-      <div className="p-3 sm:p-4 px-0">
-        <p className="text-sm leading-relaxed text-black whitespace-pre-wrap break-words">{post.content}</p>
-        {post.image_url && (
-          <div className="mt-3 rounded-lg overflow-hidden">
-            <Image
-              src={post.image_url || "/placeholder.svg"}
-              alt="Post image"
-              width={600}
-              height={400}
-              className="object-cover w-full max-h-[500px]"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="p-3 sm:p-4 pt-0 px-0 flex flex-col items-start space-y-4">
-        <hr className="w-full border-t border-gray-200" />
-        <PostActions
-          postId={post.id}
-          initialLikeCount={likeCount}
-          initialCommentCount={commentCount}
-          isLiked={isLiked}
-          isBookmarked={isBookmarked}
-          postUserId={post.user_id}
-          currentUserId={user?.id}
-          onLikeChange={handleLikeChange}
-          onBookmarkChange={handleBookmarkChange}
-        />
-      </div>
-    </div>
+    </article>
   )
 }

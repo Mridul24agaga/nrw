@@ -31,10 +31,10 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-[1400px] px-4 py-6">
-        <div className="flex flex-col lg:flex-row gap-8">
+      <div className="w-full px-2 sm:px-3 md:px-4 py-6">
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6 lg:gap-8">
           {/* Left Sidebar */}
-          <div className="hidden lg:block lg:w-[280px] lg:shrink-0">
+          <div className="hidden lg:block lg:w-[240px] xl:w-[280px] lg:shrink-0">
             <div className="sticky top-20">
               <Sidebar />
             </div>
@@ -55,13 +55,11 @@ export default async function Home() {
           </div>
 
           {/* Right Sidebar */}
-          <div className="hidden lg:block lg:w-[280px] lg:shrink-0">
-            <div className="sticky top-20">
-            </div>
+          <div className="hidden lg:block lg:w-[240px] xl:w-[280px] lg:shrink-0">
+            <div className="sticky top-20"></div>
           </div>
         </div>
       </div>
     </div>
   )
 }
-

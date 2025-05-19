@@ -8,9 +8,19 @@ import { ImageIcon, X, Upload } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 
+interface ThemeColor {
+  name: string
+  color: string
+  hoverColor: string
+  lightColor: string
+  superLightColor: string
+  textColor: string
+}
+
 interface AddMemoryFormProps {
   memorialId: string
   onMemoryAdded: (newMemory: string, imageUrl?: string) => void
+  themeColor?: ThemeColor
 }
 
 interface MemoryObject {
@@ -19,7 +29,18 @@ interface MemoryObject {
   createdAt: string
 }
 
-export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps) {
+export function AddMemoryForm({
+  memorialId,
+  onMemoryAdded,
+  themeColor = {
+    name: "purple",
+    color: "bg-purple-600",
+    hoverColor: "hover:bg-purple-700",
+    lightColor: "bg-purple-100",
+    superLightColor: "bg-purple-50",
+    textColor: "text-purple-600",
+  },
+}: AddMemoryFormProps) {
   const [content, setContent] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -242,8 +263,8 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200" onDragEnter={handleDrag}>
         <div className="flex items-start p-4">
           <div className="flex-shrink-0 mr-4">
-            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-              <ImageIcon className="w-5 h-5 text-gray-500" />
+            <div className={`w-10 h-10 rounded-full ${themeColor.lightColor} flex items-center justify-center`}>
+              <ImageIcon className={`w-5 h-5 ${themeColor.textColor}`} />
             </div>
           </div>
           <div className="flex-grow">
@@ -274,7 +295,7 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
             {!imageUrl && (
               <div
                 className={`mt-3 border-2 border-dashed rounded-lg p-4 text-center ${
-                  dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
+                  dragActive ? `border-${themeColor.name}-500 bg-${themeColor.name}-50` : "border-gray-300"
                 }`}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
@@ -299,7 +320,7 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
                       "Uploading..."
                     ) : (
                       <>
-                        <span className="font-medium text-blue-500">Click to upload</span> or drag and drop
+                        <span className={`font-medium ${themeColor.textColor}`}>Click to upload</span> or drag and drop
                       </>
                     )}
                   </span>
@@ -321,7 +342,7 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
               ${
                 isSubmitting || (!content.trim() && !imageUrl) || isUploading
                   ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-[#86efac] text-white hover:bg-[#6ee7a1] transition-colors"
+                  : `${themeColor.color} ${themeColor.hoverColor} text-white transition-colors`
               }
             `}
           >
@@ -351,4 +372,3 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
     </div>
   )
 }
-

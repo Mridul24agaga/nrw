@@ -128,24 +128,22 @@ export function PostActions({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={handleLike} className="flex items-center gap-1 text-black" disabled={!currentUserId}>
-            <Heart className={liked ? "fill-current text-red-500" : ""} />
-            <span>{likeCount}</span>
-          </button>
-          <button onClick={toggleCommentSection} className="flex items-center gap-1 text-black">
-            <MessageCircle className={isCommentSectionOpen ? "text-blue-500" : ""} />
-            <span>{commentCount}</span>
-          </button>
-          <button onClick={handleBookmark} className="flex items-center gap-1 text-black" disabled={!currentUserId}>
-            <Bookmark className={bookmarked ? "fill-current text-yellow-500" : ""} />
-          </button>
-        </div>
+      <div className="flex items-center gap-4">
+        <button onClick={handleLike} className="flex items-center gap-1 text-black" disabled={!currentUserId}>
+          <Heart className={liked ? "fill-current text-red-500" : ""} />
+          <span>{likeCount}</span>
+        </button>
+        <button onClick={toggleCommentSection} className="flex items-center gap-1 text-black">
+          <MessageCircle className={isCommentSectionOpen ? "text-blue-500" : ""} />
+          <span>{commentCount}</span>
+        </button>
+        <button onClick={handleBookmark} className="flex items-center gap-1 text-black" disabled={!currentUserId}>
+          <Bookmark className={bookmarked ? "fill-current text-yellow-500" : ""} />
+        </button>
 
-        {/* Delete post option (only for post author) */}
+        {/* Delete post option (only for post author) - Now positioned inline with other actions */}
         {isAuthor && (
-          <div className="relative" ref={menuRef}>
+          <div className="relative ml-auto" ref={menuRef}>
             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 rounded-full hover:bg-gray-100">
               <MoreHorizontal className="h-5 w-5 text-gray-500" />
             </button>

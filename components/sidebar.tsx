@@ -1,82 +1,93 @@
+"use client"
+
 import Link from "next/link"
-import { Menu, Home, Bookmark, Clock, Users, MessageSquare, Bell, Mail, Info, Scale, User, PenTool, MessageCircle } from 'lucide-react'
+import { usePathname } from "next/navigation"
+import { Home, Search, Mail, Bookmark, Users, User, Clock, MessageCircle, Info, Scale, PenTool } from "lucide-react"
+import PostDialog from "./post-dialog"
 
 export default function Sidebar() {
+  const pathname = usePathname()
+
+  // Function to determine if a link is active
+  const isActive = (path: string) => pathname === path
+
+  // Navigation items
+  const navigationItems = [
+    { href: "/", icon: Home, label: "Home" },
+    { href: "/bookmarks", icon: Bookmark, label: "Bookmarks" },
+    { href: "/create-memorial", icon: Clock, label: "Create Memorial" },
+    { href: "/moneymaker", icon: PenTool, label: "Collage Maker" },
+    { href: "/companion", icon: Users, label: "Virtual Companion" },
+    { href: "/chat", icon: MessageCircle, label: "Chat" },
+  ]
+
+  const footerItems = [
+    { href: "/about", icon: Info, label: "About Us" },
+    { href: "/legal", icon: Scale, label: "Legal" },
+  ]
+
   return (
-    <aside className="w-[280px] rounded-xl bg-white p-4 shadow mr-8">
-      <nav className="flex flex-col">
-        <div className="flex flex-col space-y-4">
-          {/* Primary Navigation Group */}
-          <div className="flex flex-col gap-1">
-            <Link
-              href="/"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-            >
-              <Home size={18} />
-              <span>Home</span>
-            </Link>
+    <div className="rounded-xl bg-white shadow overflow-hidden">
+      {/* Navigation */}
+      <nav className="p-2">
+        <div className="space-y-1">
+          {navigationItems.map((item, index) => {
+            const active = isActive(item.href)
+            const Icon = item.icon
 
-            <Link
-              href="/bookmarks"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-            >
-              <Bookmark size={18} />
-              <span>Bookmarks</span>
-            </Link>
-
-            <Link
-              href="/create-memorial"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-            >
-              <Clock size={18} />
-              <span>Create Memorial</span>
-            </Link>
-
-            <Link
-              href="/moneymaker"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-            >
-              <PenTool size={18} />
-              <span>Collage Maker</span>
-            </Link>
-
-            <Link
-              href="/companion"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-            >
-              <Users size={18} />
-              <span>Diary/ Virtual Companion</span>
-            </Link>
-
-            <Link
-              href="/chat"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-            >
-              <MessageCircle size={18} />
-              <span>Chat</span>
-            </Link>
-          </div>
-
-          {/* Footer Navigation Group */}
-          <div className="flex flex-col gap-1 pt-4">
-            <Link
-              href="/about"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-            >
-              <Info size={18} />
-              <span>About Us</span>
-            </Link>
-
-            <Link
-              href="/legal"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-            >
-              <Scale size={18} />
-              <span>Legal</span>
-            </Link>
-          </div>
+            return (
+              <Link
+                key={index}
+                href={item.href}
+                className={`
+                  flex items-center px-3 py-2.5 rounded-lg text-base
+                  transition-colors duration-200 hover:bg-gray-50
+                  ${active ? "font-bold bg-gray-50" : "text-gray-700"}
+                `}
+              >
+                <Icon size={20} className="mr-3" />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
         </div>
       </nav>
-    </aside>
+
+      {/* Post Button with Dialog */}
+      <div className="p-4 border-t border-gray-100">
+        <PostDialog
+          trigger={
+            <button className="w-full bg-[#22C55E] hover:bg-[#1a8cd8] text-white font-bold py-2.5 px-4 rounded-lg transition-colors">
+              Post
+            </button>
+          }
+        />
+      </div>
+
+      {/* Footer Navigation */}
+      <div className="p-2 border-t border-gray-100">
+        <div className="space-y-1">
+          {footerItems.map((item, index) => {
+            const active = isActive(item.href)
+            const Icon = item.icon
+
+            return (
+              <Link
+                key={index}
+                href={item.href}
+                className={`
+                  flex items-center px-3 py-2.5 rounded-lg text-sm
+                  transition-colors duration-200 hover:bg-gray-50
+                  ${active ? "font-bold bg-gray-50" : "text-gray-500"}
+                `}
+              >
+                <Icon size={18} className="mr-3" />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+    </div>
   )
 }

@@ -10,6 +10,15 @@ import { likeMemory, addMemoryComment, deleteMemory } from "@/actions/memory-act
 import { CustomAvatar } from "./custom-avatar"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
+interface ThemeColor {
+  name: string
+  color: string
+  hoverColor: string
+  lightColor: string
+  superLightColor: string
+  textColor: string
+}
+
 interface MemoryContent {
   content: string
   imageUrl: string | null
@@ -27,9 +36,25 @@ interface MemoryCardProps {
     avatar_url: string | null
   } | null
   isCreator: boolean
+  themeColor?: ThemeColor
 }
 
-export function MemoryCard({ memoryId, memorialId, memory, pageName, currentUser, isCreator }: MemoryCardProps) {
+export function MemoryCard({
+  memoryId,
+  memorialId,
+  memory,
+  pageName,
+  currentUser,
+  isCreator,
+  themeColor = {
+    name: "purple",
+    color: "bg-purple-600",
+    hoverColor: "hover:bg-purple-700",
+    lightColor: "bg-purple-100",
+    superLightColor: "bg-purple-50",
+    textColor: "text-purple-600",
+  },
+}: MemoryCardProps) {
   const router = useRouter()
   const supabase = createClientComponentClient()
 
@@ -318,9 +343,25 @@ export function MemoryCard({ memoryId, memorialId, memory, pageName, currentUser
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4">
+    <div className={`bg-white rounded-2xl border border-gray-200 p-4 mb-4 ${themeColor.superLightColor}`}>
       <div className="flex items-start mb-4">
-        <div className="flex-shrink-0 mr-3">{/* Placeholder for avatar if needed */}</div>
+        <div className="flex-shrink-0 mr-3 z-10">
+          {currentUser && (
+            <div className="h-10 w-10 rounded-full overflow-hidden">
+              <CustomAvatar
+                user={{
+                  id: currentUser.id,
+                  username: currentUser.username,
+                  avatar_url: currentUser.avatar_url,
+                  email: "",
+                  bio: null,
+                  created_at: "",
+                }}
+                size={40}
+              />
+            </div>
+          )}
+        </div>
         <div className="w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -386,7 +427,7 @@ export function MemoryCard({ memoryId, memorialId, memory, pageName, currentUser
         <div className="flex items-center space-x-4">
           <button
             onClick={handleLike}
-            className={`flex items-center ${isLiked ? "text-blue-500" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex items-center ${isLiked ? themeColor.textColor : "text-gray-500 hover:text-gray-700"}`}
           >
             <ThumbsUp className={`w-4 h-4 mr-1 ${isLiked ? "fill-current" : ""}`} />
             <span>{likeCount} likes</span>
@@ -420,7 +461,7 @@ export function MemoryCard({ memoryId, memorialId, memory, pageName, currentUser
                       />
                     </div>
                   </div>
-                  <div className="flex-1 bg-gray-100 rounded-lg p-2">
+                  <div className={`flex-1 ${themeColor.superLightColor} rounded-lg p-2`}>
                     <div className="flex items-center">
                       <span className="font-medium text-sm">{comment.user.username}</span>
                       <span className="mx-1 text-gray-500 text-xs">·</span>
@@ -458,12 +499,12 @@ export function MemoryCard({ memoryId, memorialId, memory, pageName, currentUser
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder="Write a comment..."
-                  className="w-full border border-gray-300 rounded-full py-2 px-4 pr-10 text-sm focus:outline-none focus:border-blue-500"
+                  className={`w-full border border-gray-300 rounded-full py-2 px-4 pr-10 text-sm focus:outline-none focus:border-${themeColor.name}-500`}
                 />
                 <button
                   type="submit"
                   disabled={!newComment.trim() || isSubmitting}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-500 disabled:text-gray-400"
+                  className={`absolute right-2 top-1/2 transform -translate-y-1/2 ${themeColor.textColor} disabled:text-gray-400`}
                 >
                   <Send className="w-4 h-4" />
                 </button>
@@ -475,4 +516,3 @@ export function MemoryCard({ memoryId, memorialId, memory, pageName, currentUser
     </div>
   )
 }
-
