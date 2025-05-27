@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { MessageCircle, ThumbsUp, Trash2, X, Send } from "lucide-react"
 import Image from "next/image"
@@ -23,6 +22,11 @@ interface MemoryContent {
   content: string
   imageUrl: string | null
   createdAt: string
+  author?: {
+    id: string
+    username: string
+    avatar_url: string | null
+  }
 }
 
 interface MemoryCardProps {
@@ -62,6 +66,7 @@ export function MemoryCard({
   const [content, setContent] = useState("")
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [createdAt, setCreatedAt] = useState(new Date().toISOString())
+  const [author, setAuthor] = useState<{ id: string; username: string; avatar_url: string | null } | null>(null)
 
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
@@ -76,7 +81,7 @@ export function MemoryCard({
   // Parse memory content on mount
   useEffect(() => {
     // Function to recursively parse potentially nested JSON
-    const parseNestedJson = (data: any): MemoryContent => {
+    const parseNestedJson = (data: any): MemoryContent & { author?: any } => {
       // If it's a string, try to parse it as JSON
       if (typeof data === "string") {
         try {
@@ -94,6 +99,7 @@ export function MemoryCard({
                   content: parsed.content || "",
                   imageUrl: parsed.imageUrl || null,
                   createdAt: parsed.createdAt || new Date().toISOString(),
+                  author: parsed.author,
                 }
               } else if (parsed.imageUrl !== undefined) {
                 // Handle case where the object has imageUrl but not content
@@ -101,6 +107,7 @@ export function MemoryCard({
                   content: "",
                   imageUrl: parsed.imageUrl,
                   createdAt: parsed.createdAt || new Date().toISOString(),
+                  author: parsed.author,
                 }
               }
             }
@@ -109,6 +116,7 @@ export function MemoryCard({
               content: typeof parsed === "string" ? parsed : JSON.stringify(parsed),
               imageUrl: null,
               createdAt: new Date().toISOString(),
+              author: null,
             }
           }
         } catch (e) {
@@ -120,6 +128,7 @@ export function MemoryCard({
           content: data,
           imageUrl: null,
           createdAt: new Date().toISOString(),
+          author: null,
         }
       }
 
@@ -139,6 +148,7 @@ export function MemoryCard({
                 content: parsedContent.content || "",
                 imageUrl: parsedContent.imageUrl || data.imageUrl || null,
                 createdAt: parsedContent.createdAt || data.createdAt || new Date().toISOString(),
+                author: parsedContent.author || data.author,
               }
             }
           } catch (e) {
@@ -152,6 +162,7 @@ export function MemoryCard({
           content: data.content || "",
           imageUrl: data.imageUrl || null,
           createdAt: data.createdAt || new Date().toISOString(),
+          author: data.author,
         }
       }
 
@@ -160,6 +171,7 @@ export function MemoryCard({
         content: String(data),
         imageUrl: null,
         createdAt: new Date().toISOString(),
+        author: null,
       }
     }
 
@@ -169,6 +181,18 @@ export function MemoryCard({
     setContent(parsedMemory.content)
     setImageUrl(parsedMemory.imageUrl)
     setCreatedAt(parsedMemory.createdAt)
+
+    // Make sure we properly extract the author information
+    if (parsedMemory.author) {
+      setAuthor({
+        id: parsedMemory.author.id || "unknown",
+        username: parsedMemory.author.username || "Anonymous",
+        avatar_url: parsedMemory.author.avatar_url || null,
+      })
+    } else {
+      // If no author info, use currentUser as fallback or null
+      setAuthor(null)
+    }
   }, [memory])
 
   const formattedDate = new Date(createdAt).toLocaleDateString("en-US", {
@@ -342,11 +366,28 @@ export function MemoryCard({
     }
   }
 
+  // Determine if the current user can delete this memory
+  const canDelete = isCreator || (currentUser && author && currentUser.id === author.id)
+
   return (
     <div className={`bg-white rounded-2xl border border-gray-200 p-4 mb-4 ${themeColor.superLightColor}`}>
       <div className="flex items-start mb-4">
         <div className="flex-shrink-0 mr-3 z-10">
-          {currentUser && (
+          {author ? (
+            <div className="h-10 w-10 rounded-full overflow-hidden">
+              <CustomAvatar
+                user={{
+                  id: author.id,
+                  username: author.username,
+                  avatar_url: author.avatar_url,
+                  email: "",
+                  bio: null,
+                  created_at: "",
+                }}
+                size={40}
+              />
+            </div>
+          ) : currentUser ? (
             <div className="h-10 w-10 rounded-full overflow-hidden">
               <CustomAvatar
                 user={{
@@ -360,17 +401,22 @@ export function MemoryCard({
                 size={40}
               />
             </div>
+          ) : (
+            <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+              <span className="text-gray-500 text-lg">?</span>
+            </div>
           )}
         </div>
         <div className="w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <h3 className="font-medium text-gray-900">{pageName}</h3>
+              {/* Display the author's username instead of the memorial name */}
+              <h3 className="font-medium text-gray-900">{author ? author.username : "Anonymous"}</h3>
               <span className="mx-2 text-gray-500">·</span>
               <span className="text-gray-500">{formattedDate}</span>
             </div>
 
-            {isCreator && (
+            {canDelete && (
               <div className="relative">
                 <button
                   onClick={() => setShowDeleteConfirm(true)}

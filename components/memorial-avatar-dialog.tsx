@@ -6,7 +6,7 @@ import { useState, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
-import { Upload, X } from "lucide-react"
+import { Upload, X, Camera } from "lucide-react"
 
 interface MemorialAvatarDialogProps {
   children: React.ReactNode
@@ -71,7 +71,6 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
 
       // Check if response is OK
       if (!response.ok) {
-        // Try to get error as JSON first
         let errorMessage = "Failed to upload avatar"
 
         try {
@@ -80,7 +79,6 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
             const errorData = await response.json()
             errorMessage = errorData.error || errorMessage
           } else {
-            // If not JSON, get text
             const errorText = await response.text()
             console.error("Non-JSON error response:", errorText)
           }
@@ -91,7 +89,6 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
         throw new Error(errorMessage)
       }
 
-      // Check content type before parsing as JSON
       const contentType = response.headers.get("content-type")
       if (!contentType || !contentType.includes("application/json")) {
         const textResponse = await response.text()
@@ -101,7 +98,7 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
 
       const result = await response.json()
 
-      // Update preview with the new URL from Vercel Blob
+      // Update preview with the new URL
       setPreviewUrl(result.url)
       setUploadSuccess(true)
 
@@ -130,29 +127,46 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <div className="cursor-pointer z-10 relative">{children}</div>
+        {/* FIXED: Improved trigger styling with proper positioning */}
+        <div className="relative inline-block cursor-pointer">{children}</div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Update Memorial Avatar</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Camera className="h-5 w-5" />
+            Update Memorial Avatar
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Preview */}
+        <div className="space-y-6">
+          {/* FIXED: Improved preview section */}
           <div className="flex justify-center">
-            <div className="relative h-32 w-32 rounded-full overflow-hidden border-2 border-gray-200 z-10">
-              {previewUrl ? (
-                <Image src={previewUrl || "/placeholder.svg"} alt={memorialName} fill className="object-cover" />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center bg-gray-100">
-                  <span className="text-4xl text-gray-400">{memorialName[0]?.toUpperCase()}</span>
-                </div>
-              )}
+            <div className="relative">
+              <div className="h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100">
+                {previewUrl ? (
+                  <Image
+                    src={previewUrl || "/placeholder.svg"}
+                    alt={memorialName}
+                    width={128}
+                    height={128}
+                    className="object-cover w-full h-full"
+                    priority
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-purple-200">
+                    <span className="text-4xl text-purple-600 font-serif">{memorialName[0]?.toUpperCase()}</span>
+                  </div>
+                )}
+              </div>
+              {/* Upload indicator overlay */}
+              <div className="absolute inset-0 rounded-full bg-black bg-opacity-0 hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+                <Camera className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity duration-200" />
+              </div>
             </div>
           </div>
 
-          {/* File input */}
-          <div className="flex flex-col items-center gap-2">
+          {/* FIXED: Improved file input section */}
+          <div className="space-y-4">
             <input
               type="file"
               ref={inputFileRef}
@@ -162,42 +176,81 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
               id="memorial-avatar-upload"
             />
 
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => inputFileRef.current?.click()}
-                disabled={isUploading}
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                Select Image
-              </Button>
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => inputFileRef.current?.click()}
+                  disabled={isUploading}
+                  className="flex-1 max-w-xs"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {selectedFile ? "Change Image" : "Select Image"}
+                </Button>
+
+                {selectedFile && (
+                  <Button type="button" variant="outline" onClick={handleRemoveFile} disabled={isUploading} size="icon">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
 
               {selectedFile && (
-                <Button type="button" variant="outline" onClick={handleRemoveFile} disabled={isUploading}>
-                  <X className="mr-2 h-4 w-4" />
-                  Remove
-                </Button>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 font-medium">{selectedFile.name}</p>
+                  <p className="text-xs text-gray-500">{Math.round(selectedFile.size / 1024)} KB</p>
+                </div>
               )}
             </div>
 
-            {selectedFile && (
-              <p className="text-sm text-gray-500">
-                {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+            {/* Guidelines */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-700">
+                <strong>Guidelines:</strong> Upload a square image for best results. Maximum file size: 5MB. Supported
+                formats: JPG, PNG, GIF.
               </p>
-            )}
+            </div>
           </div>
 
-          {/* Error message */}
-          {uploadError && <div className="text-sm text-red-500 text-center">{uploadError}</div>}
+          {/* FIXED: Improved error and success messages */}
+          {uploadError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-700 text-center">{uploadError}</p>
+            </div>
+          )}
 
-          {/* Success message */}
-          {uploadSuccess && <div className="text-sm text-green-500 text-center">Avatar uploaded successfully!</div>}
+          {uploadSuccess && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-sm text-green-700 text-center flex items-center justify-center gap-2">
+                <span className="text-green-500">✓</span>
+                Avatar uploaded successfully!
+              </p>
+            </div>
+          )}
 
-          {/* Upload button */}
-          <div className="flex justify-end">
-            <Button type="button" onClick={handleUpload} disabled={!selectedFile || isUploading}>
-              {isUploading ? "Uploading..." : "Upload Avatar"}
+          {/* FIXED: Improved upload button */}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isUploading}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleUpload}
+              disabled={!selectedFile || isUploading}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {isUploading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Avatar
+                </>
+              )}
             </Button>
           </div>
         </div>

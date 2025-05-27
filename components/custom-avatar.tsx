@@ -58,7 +58,7 @@ export function CustomAvatar({ user, size = 40, className = "", onClick }: Custo
 
     return (
       <div
-        className={`relative overflow-hidden z-10 ${className}`}
+        className={`relative overflow-hidden ${className}`}
         style={{
           width: size,
           height: size,
@@ -70,8 +70,8 @@ export function CustomAvatar({ user, size = 40, className = "", onClick }: Custo
         <Image
           src={imageSrc || "/placeholder.svg"}
           alt={user.username || "User avatar"}
-          width={size}
-          height={size}
+          fill
+          sizes={`${size}px`}
           className="object-cover"
           onError={() => {
             console.log("Image failed to load:", imageSrc)
@@ -85,7 +85,7 @@ export function CustomAvatar({ user, size = 40, className = "", onClick }: Custo
   // Otherwise, show initials
   return (
     <div
-      className={`flex items-center justify-center z-10 ${className}`}
+      className={`flex items-center justify-center ${className}`}
       style={{
         width: size,
         height: size,

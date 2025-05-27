@@ -29,7 +29,7 @@ interface Memorial {
     avatar_url: string | null
   }
   memorial_avatar_url?: string | null
-  memory_message?: string[]
+  memory_message?: any[]
   theme?: string
   header_style?: string
   header_image_url?: string
@@ -229,7 +229,92 @@ export default function MemorialPage() {
           console.error("Error fetching memories:", memoriesError)
         }
 
-        setMemories(memoriesData?.memory_message || [])
+        // FIXED: Properly parse memories to handle various formats
+        let parsedMemories = []
+        if (memoriesData?.memory_message) {
+          try {
+            if (Array.isArray(memoriesData.memory_message)) {
+              parsedMemories = memoriesData.memory_message.map((memory: any) => {
+                // Handle string memories (legacy format)
+                if (typeof memory === "string") {
+                  try {
+                    // Try to parse as JSON first
+                    const parsed = JSON.parse(memory)
+                    return parsed
+                  } catch {
+                    // If not JSON, treat as plain text
+                    return {
+                      content: memory,
+                      imageUrl: null,
+                      createdAt: new Date().toISOString(),
+                      author: null,
+                    }
+                  }
+                }
+
+                // Handle object memories
+                if (typeof memory === "object" && memory !== null) {
+                  // Check for double-encoded JSON in content field
+                  if (memory.content && typeof memory.content === "string") {
+                    try {
+                      // If content looks like JSON, try to parse it
+                      if (memory.content.startsWith("{") || memory.content.includes('\\"')) {
+                        let parsedContent = memory.content
+
+                        // Keep parsing until we get clean content
+                        while (
+                          typeof parsedContent === "string" &&
+                          (parsedContent.startsWith("{") || parsedContent.includes('\\"'))
+                        ) {
+                          try {
+                            parsedContent = JSON.parse(parsedContent)
+                          } catch {
+                            break
+                          }
+                        }
+
+                        // If we got a proper object, use it
+                        if (typeof parsedContent === "object" && parsedContent.content) {
+                          return {
+                            content: parsedContent.content,
+                            imageUrl: parsedContent.imageUrl || null,
+                            createdAt: parsedContent.createdAt || memory.createdAt || new Date().toISOString(),
+                            author: parsedContent.author || memory.author || null,
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      console.error("Error parsing memory content:", e)
+                    }
+                  }
+
+                  // Return the memory as-is if it's already properly formatted
+                  return {
+                    content: memory.content || "",
+                    imageUrl: memory.imageUrl || null,
+                    createdAt: memory.createdAt || new Date().toISOString(),
+                    author: memory.author || null,
+                  }
+                }
+
+                // Fallback for unexpected formats
+                return {
+                  content: String(memory),
+                  imageUrl: null,
+                  createdAt: new Date().toISOString(),
+                  author: null,
+                }
+              })
+            } else {
+              parsedMemories = []
+            }
+          } catch (e) {
+            console.error("Error parsing memories:", e)
+            parsedMemories = []
+          }
+        }
+
+        setMemories(parsedMemories)
 
         if (currentUserId && session?.user) {
           // Fetch the user's profile data
@@ -265,7 +350,6 @@ export default function MemorialPage() {
 
         // Fetch virtual flowers with better error handling
         try {
-          // First try with the join query
           const { data: flowersData, error: flowersError } = await supabase
             .from("virtual_flowers")
             .select("id, memorial_id, sender_name, sender_id, created_at")
@@ -295,7 +379,6 @@ export default function MemorialPage() {
                     senderId = senderData.id
                   }
                 } catch (senderError) {
-                  // Ignore errors fetching sender data
                   console.log("Error fetching sender data:", senderError)
                 }
               }
@@ -311,7 +394,7 @@ export default function MemorialPage() {
           setVirtualFlowers(transformedFlowers)
         } catch (flowersError) {
           console.error("Error fetching flowers:", flowersError)
-          setVirtualFlowers([]) // Set empty array in case of error
+          setVirtualFlowers([])
         }
       } catch (err) {
         console.error("Error in MemorialPage:", err)
@@ -322,8 +405,56 @@ export default function MemorialPage() {
     }
 
     fetchData()
+
+    // FIXED: Check for payment success from URL params
+    const urlParams = new URLSearchParams(window.location.search)
+    const paymentSuccess = urlParams.get("payment_success")
+    const flowerData = urlParams.get("flower_data")
+
+    if (paymentSuccess === "true" && flowerData) {
+      handlePaymentSuccess(flowerData)
+    }
   }, [pageName, supabase])
 
+  // FIXED: Handle payment success and add flower to database
+  const handlePaymentSuccess = async (flowerDataString: string) => {
+    try {
+      const flowerData = JSON.parse(decodeURIComponent(flowerDataString))
+
+      // Now add the flower to the database after successful payment
+      const { data, error } = await supabase
+        .from("virtual_flowers")
+        .insert({
+          memorial_id: flowerData.memorial_id,
+          sender_name: flowerData.sender_name,
+          sender_id: flowerData.sender_id,
+        })
+        .select()
+
+      if (error) {
+        console.error("Error adding flower after payment:", error)
+        return
+      }
+
+      if (data && data.length > 0) {
+        // Add the new flower to the UI
+        const newFlower: VirtualFlower = {
+          ...data[0],
+          sender_avatar: flowerData.sender_avatar || null,
+          sender_id: flowerData.sender_id,
+        }
+
+        setVirtualFlowers((prev) => [newFlower, ...prev])
+
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname)
+      }
+    } catch (err) {
+      console.error("Error processing payment success:", err)
+    }
+  }
+
+  // FIXED: Modified to redirect to PayPal FIRST, then handle payment confirmation
   const handleSendVirtualFlower = async () => {
     if (!user || !memorial) {
       console.error("Cannot send flower: User or memorial is null")
@@ -334,65 +465,26 @@ export default function MemorialPage() {
     try {
       const senderName = user.profile?.full_name || user.profile?.username || user.email || "Anonymous"
 
-      console.log("Attempting to send flower for:", {
+      // Prepare flower data for after payment
+      const flowerData = {
         memorial_id: memorial.id,
         sender_name: senderName,
         sender_id: user.id,
-      })
-
-      // First check if the table exists by doing a simple select
-      const { error: checkError } = await supabase.from("virtual_flowers").select("id").limit(1)
-
-      if (checkError) {
-        console.error("Error checking virtual_flowers table:", checkError)
-        throw new Error(`Table check failed: ${checkError.message}`)
-      }
-
-      // Insert the flower record
-      const { data, error } = await supabase
-        .from("virtual_flowers")
-        .insert({
-          memorial_id: memorial.id,
-          sender_name: senderName,
-          sender_id: user.id,
-        })
-        .select()
-
-      if (error) {
-        console.error("Supabase insert error:", error)
-        throw new Error(`Failed to insert flower: ${error.message}`)
-      }
-
-      if (!data || data.length === 0) {
-        console.error("No data returned from insert")
-        throw new Error("No data returned from insert operation")
-      }
-
-      console.log("Successfully inserted flower:", data[0])
-
-      // Add the sender's avatar to the new flower
-      const newFlower: VirtualFlower = {
-        ...data[0],
         sender_avatar: user.profile?.avatar_url || null,
-        sender_id: user.id,
       }
 
-      // Update the UI with the new flower
-      setVirtualFlowers((prev) => [newFlower, ...prev])
+      // Encode flower data to pass through PayPal redirect
+      const encodedFlowerData = encodeURIComponent(JSON.stringify(flowerData))
 
-      // Only redirect to PayPal after successful database operation
-      console.log("Redirecting to PayPal...")
-      window.location.href = "https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA"
+      // Create return URL with flower data
+      const returnUrl = `${window.location.origin}${window.location.pathname}?payment_success=true&flower_data=${encodedFlowerData}`
+
+      // Redirect to PayPal FIRST - NO database operation yet
+      console.log("Redirecting to PayPal for payment...")
+      window.location.href = `https://www.paypal.com/ncp/payment/5L53UJ7NSJ6VA?return=${encodeURIComponent(returnUrl)}`
     } catch (err) {
-      // Log the full error details
-      console.error("Error sending virtual flower:", err)
-
-      // Set a more descriptive error message
-      setError(
-        err instanceof Error
-          ? `Failed to send virtual flower: ${err.message}`
-          : "Failed to send virtual flower. Please try again.",
-      )
+      console.error("Error preparing flower payment:", err)
+      setError("Failed to process payment. Please try again.")
     } finally {
       setIsSendingFlower(false)
     }
@@ -546,8 +638,6 @@ export default function MemorialPage() {
 
           {/* Main Content */}
           <div className="w-full md:w-1/2 bg-white min-h-screen shadow-sm">
-           
-
             {/* Header with dynamic styling */}
             <div
               className={`relative h-48 ${getHeaderClasses()} overflow-hidden`}
@@ -559,7 +649,7 @@ export default function MemorialPage() {
             >
               <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
 
-              {/* Memorial Avatar - FIXED: Increased z-index from 10 to 30 */}
+              {/* Memorial Avatar */}
               <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 z-30">
                 {isCurrentUserCreator && memorial ? (
                   <MemorialAvatarDialog
@@ -769,7 +859,7 @@ export default function MemorialPage() {
                   className={`w-full mb-4 ${currentTheme.color} ${currentTheme.hoverColor} text-white`}
                 >
                   <Flower className="h-4 w-4 mr-2" />
-                  {isSendingFlower ? "Sending..." : "Send Virtual Flower"}
+                  {isSendingFlower ? "Redirecting to Payment..." : "Send Virtual Flower ($5)"}
                 </Button>
               )}
 
@@ -859,7 +949,7 @@ export default function MemorialPage() {
             </div>
           </div>
 
-          {/* Right Sidebar - can be used for additional information */}
+          {/* Right Sidebar */}
           <div className="w-full md:w-1/4 p-4">
             <div className="sticky top-4 bg-white rounded-lg shadow-sm p-6">
               <h3 className="text-lg font-serif text-gray-700 mb-3">About This Memorial</h3>

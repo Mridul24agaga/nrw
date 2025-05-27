@@ -27,6 +27,11 @@ interface MemoryObject {
   content: string
   imageUrl: string | null
   createdAt: string
+  author?: {
+    id: string
+    username: string
+    avatar_url: string | null
+  }
 }
 
 export function AddMemoryForm({
@@ -141,11 +146,34 @@ export function AddMemoryForm({
       const { data: userData, error: userError } = await supabase.auth.getUser()
       if (userError) throw userError
 
-      // Create memory object with content and optional image
+      // Get user profile data for author information
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("username, avatar_url")
+        .eq("id", userData.user.id)
+        .single()
+
+      if (profileError && profileError.code !== "PGRST116") {
+        console.error("Error fetching profile:", profileError)
+      }
+
+      // Log the memory object for debugging
+      console.log("Creating memory with author:", {
+        id: userData.user.id,
+        username: profileData?.username || userData.user.email?.split("@")[0] || "Anonymous",
+        avatar_url: profileData?.avatar_url,
+      })
+
+      // Create memory object with content, image, and author information
       const memoryObject: MemoryObject = {
         content,
         imageUrl: imageUrl || null,
         createdAt: new Date().toISOString(),
+        author: {
+          id: userData.user.id,
+          username: profileData?.username || userData.user.email?.split("@")[0] || "Anonymous",
+          avatar_url: profileData?.avatar_url || null,
+        },
       }
 
       // Get current memories
@@ -203,6 +231,7 @@ export function AddMemoryForm({
                       content: parsedContent.content,
                       imageUrl: parsedContent.imageUrl || null,
                       createdAt: parsedContent.createdAt || new Date().toISOString(),
+                      author: parsedContent.author || memory.author,
                     }
                   }
                 } catch (e) {
@@ -215,6 +244,7 @@ export function AddMemoryForm({
                 content: typeof memory.content === "string" ? memory.content : "",
                 imageUrl: memory.imageUrl || null,
                 createdAt: memory.createdAt || new Date().toISOString(),
+                author: memory.author,
               }
             }
 
