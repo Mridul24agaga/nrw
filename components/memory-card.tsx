@@ -66,7 +66,9 @@ export function MemoryCard({
   const [content, setContent] = useState("")
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [createdAt, setCreatedAt] = useState(new Date().toISOString())
-  const [author, setAuthor] = useState<{ id: string; username: string; avatar_url: string | null } | null>(null)
+  const [author, setAuthor] = useState<{ id: string; username: string; avatar_url: string | null } | undefined>(
+    undefined,
+  )
 
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
@@ -99,7 +101,7 @@ export function MemoryCard({
                   content: parsed.content || "",
                   imageUrl: parsed.imageUrl || null,
                   createdAt: parsed.createdAt || new Date().toISOString(),
-                  author: parsed.author,
+                  author: parsed.author || undefined,
                 }
               } else if (parsed.imageUrl !== undefined) {
                 // Handle case where the object has imageUrl but not content
@@ -107,7 +109,7 @@ export function MemoryCard({
                   content: "",
                   imageUrl: parsed.imageUrl,
                   createdAt: parsed.createdAt || new Date().toISOString(),
-                  author: parsed.author,
+                  author: parsed.author || undefined,
                 }
               }
             }
@@ -116,7 +118,7 @@ export function MemoryCard({
               content: typeof parsed === "string" ? parsed : JSON.stringify(parsed),
               imageUrl: null,
               createdAt: new Date().toISOString(),
-              author: null,
+              author: undefined,
             }
           }
         } catch (e) {
@@ -128,7 +130,7 @@ export function MemoryCard({
           content: data,
           imageUrl: null,
           createdAt: new Date().toISOString(),
-          author: null,
+          author: undefined,
         }
       }
 
@@ -148,7 +150,7 @@ export function MemoryCard({
                 content: parsedContent.content || "",
                 imageUrl: parsedContent.imageUrl || data.imageUrl || null,
                 createdAt: parsedContent.createdAt || data.createdAt || new Date().toISOString(),
-                author: parsedContent.author || data.author,
+                author: parsedContent.author || data.author || undefined,
               }
             }
           } catch (e) {
@@ -162,7 +164,7 @@ export function MemoryCard({
           content: data.content || "",
           imageUrl: data.imageUrl || null,
           createdAt: data.createdAt || new Date().toISOString(),
-          author: data.author,
+          author: data.author || undefined,
         }
       }
 
@@ -171,7 +173,7 @@ export function MemoryCard({
         content: String(data),
         imageUrl: null,
         createdAt: new Date().toISOString(),
-        author: null,
+        author: undefined,
       }
     }
 
@@ -190,8 +192,8 @@ export function MemoryCard({
         avatar_url: parsedMemory.author.avatar_url || null,
       })
     } else {
-      // If no author info, use currentUser as fallback or null
-      setAuthor(null)
+      // If no author info, set to undefined
+      setAuthor(undefined)
     }
   }, [memory])
 
