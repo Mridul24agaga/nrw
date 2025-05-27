@@ -180,9 +180,8 @@ async function validateAndCleanResponse(response: string): Promise<string> {
 
 export async function POST(request: Request) {
   try {
-    // Authentication without exposing user data
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    // FIXED: Proper authentication with correct cookies handling
+    const supabase = createRouteHandlerClient({ cookies })
 
     const {
       data: { user },
