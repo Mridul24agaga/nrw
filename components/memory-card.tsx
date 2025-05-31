@@ -459,11 +459,17 @@ export function MemoryCard({
           </div>
           <p className="mt-1 text-gray-900 whitespace-pre-wrap">{content}</p>
 
-          {/* Display image if available */}
+          {/* Display image if available - now from Vercel Blob */}
           {imageUrl && (
             <div className="mt-3 rounded-lg overflow-hidden">
               <div className="relative w-full h-64">
-                <Image src={imageUrl || "/placeholder.svg"} alt="Memory image" fill className="object-cover" />
+                <Image
+                  src={imageUrl || "/placeholder.svg"}
+                  alt="Memory image from Vercel Blob"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                />
               </div>
             </div>
           )}

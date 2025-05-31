@@ -27,10 +27,8 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
   const [previewUrl, setPreviewUrl] = useState<string | null>(avatarUrl)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const imageRef = useRef<HTMLImageElement | null>(null)
   const supabase = createClientComponentClient()
 
-  // Simple direct upload without canvas manipulation
   const handleFileSelect = () => {
     fileInputRef.current?.click()
   }
@@ -38,6 +36,18 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setErrorMessage("Please select an image file")
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage("File size must be less than 5MB")
+      return
+    }
 
     // Create a preview URL
     const objectUrl = URL.createObjectURL(file)
@@ -49,7 +59,6 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
     e.target.value = ""
   }
 
-  // Use the API route for uploading instead of direct storage access
   const handleSaveAvatar = async () => {
     if (!selectedFile) {
       setErrorMessage("Please select an image first")
@@ -65,8 +74,8 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
       formData.append("file", selectedFile)
       formData.append("userId", userId)
 
-      // Use the API route to handle the upload
-      const response = await fetch("/api/upload-avatar", {
+      // Use the new Vercel Blob API route
+      const response = await fetch("/api/blob-avatar-upload", {
         method: "POST",
         body: formData,
       })
@@ -93,8 +102,8 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
       setIsUploading(true)
       setErrorMessage(null)
 
-      // Use the API route to handle avatar removal
-      const response = await fetch("/api/remove-avatar", {
+      // Use the new API route to handle avatar removal
+      const response = await fetch("/api/blob-remove-avatar", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -125,7 +134,6 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
       // Reset preview to current avatar when dialog closes without saving
       setPreviewUrl(avatarUrl)
       setSelectedFile(null)
-      imageRef.current = null
       setErrorMessage(null)
     }
   }
@@ -178,7 +186,7 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
           <div className="flex gap-4">
             <Button type="button" variant="outline" onClick={handleFileSelect} disabled={isUploading}>
               <Upload className="mr-2 h-4 w-4" />
-              Upload Image
+              Upload to Blob
             </Button>
 
             {avatarUrl && (
@@ -206,7 +214,7 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
             {isUploading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Uploading...
+                Uploading to Blob...
               </>
             ) : (
               "Save Changes"
@@ -217,4 +225,3 @@ export function AvatarUploadDialog({ userId, avatarUrl, username, children }: Av
     </Dialog>
   )
 }
-

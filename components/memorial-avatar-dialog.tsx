@@ -63,8 +63,8 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
       formData.append("file", selectedFile)
       formData.append("memorialId", memorialId)
 
-      // Upload to API route
-      const response = await fetch("/api/memorial-avatar", {
+      // Upload to new Vercel Blob API route
+      const response = await fetch("/api/blob-memorial-avatar", {
         method: "POST",
         body: formData,
       })
@@ -127,7 +127,6 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        {/* FIXED: Improved trigger styling with proper positioning */}
         <div className="relative inline-block cursor-pointer">{children}</div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -139,7 +138,7 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* FIXED: Improved preview section */}
+          {/* Preview section */}
           <div className="flex justify-center">
             <div className="relative">
               <div className="h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-100">
@@ -165,7 +164,7 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
             </div>
           </div>
 
-          {/* FIXED: Improved file input section */}
+          {/* File input section */}
           <div className="space-y-4">
             <input
               type="file"
@@ -207,13 +206,13 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
             {/* Guidelines */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-xs text-blue-700">
-                <strong>Guidelines:</strong> Upload a square image for best results. Maximum file size: 5MB. Supported
-                formats: JPG, PNG, GIF.
+                <strong>Vercel Blob Storage:</strong> Upload a square image for best results. Maximum file size: 5MB.
+                Supported formats: JPG, PNG, GIF.
               </p>
             </div>
           </div>
 
-          {/* FIXED: Improved error and success messages */}
+          {/* Error and success messages */}
           {uploadError && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <p className="text-sm text-red-700 text-center">{uploadError}</p>
@@ -224,12 +223,12 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
             <div className="bg-green-50 border border-green-200 rounded-lg p-3">
               <p className="text-sm text-green-700 text-center flex items-center justify-center gap-2">
                 <span className="text-green-500">✓</span>
-                Avatar uploaded successfully!
+                Avatar uploaded to Vercel Blob successfully!
               </p>
             </div>
           )}
 
-          {/* FIXED: Improved upload button */}
+          {/* Upload button */}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isUploading}>
               Cancel
@@ -243,12 +242,12 @@ export function MemorialAvatarDialog({ children, memorialId, avatarUrl, memorial
               {isUploading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Uploading...
+                  Uploading to Blob...
                 </>
               ) : (
                 <>
                   <Upload className="mr-2 h-4 w-4" />
-                  Upload Avatar
+                  Upload to Blob
                 </>
               )}
             </Button>

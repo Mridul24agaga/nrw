@@ -93,9 +93,9 @@ export function AddMemoryForm({
       return
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError("File size must be less than 5MB")
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File size must be less than 10MB")
       return
     }
 
@@ -106,11 +106,10 @@ export function AddMemoryForm({
       const formData = new FormData()
       formData.append("file", file)
 
-      // Use the API route for image upload
-      const response = await fetch("/api/memory-image-upload", {
+      // Use the new Vercel Blob API route
+      const response = await fetch("/api/blob-memory-upload", {
         method: "POST",
         body: formData,
-        // Don't manually set Content-Type header - browser will set it correctly with boundary
       })
 
       if (!response.ok) {
@@ -156,13 +155,6 @@ export function AddMemoryForm({
       if (profileError && profileError.code !== "PGRST116") {
         console.error("Error fetching profile:", profileError)
       }
-
-      // Log the memory object for debugging
-      console.log("Creating memory with author:", {
-        id: userData.user.id,
-        username: profileData?.username || userData.user.email?.split("@")[0] || "Anonymous",
-        avatar_url: profileData?.avatar_url,
-      })
 
       // Create memory object with content, image, and author information
       const memoryObject: MemoryObject = {
@@ -347,14 +339,17 @@ export function AddMemoryForm({
                   <Upload className="w-6 h-6 text-gray-400 mb-2" />
                   <span className="text-sm text-gray-500">
                     {isUploading ? (
-                      "Uploading..."
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                        Uploading to Vercel Blob...
+                      </div>
                     ) : (
                       <>
                         <span className={`font-medium ${themeColor.textColor}`}>Click to upload</span> or drag and drop
                       </>
                     )}
                   </span>
-                  <span className="text-xs text-gray-400 mt-1">PNG, JPG, GIF up to 5MB</span>
+                  <span className="text-xs text-gray-400 mt-1">PNG, JPG, GIF up to 10MB</span>
                 </label>
               </div>
             )}
@@ -394,7 +389,7 @@ export function AddMemoryForm({
                 Posting...
               </span>
             ) : (
-              <span>Post</span>
+              <span>Post Memory</span>
             )}
           </button>
         </div>

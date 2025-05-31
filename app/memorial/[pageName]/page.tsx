@@ -12,7 +12,24 @@ import { Button } from "@/components/ui/button"
 import { CustomAvatar } from "@/components/custom-avatar"
 import { AvatarUploadDialog } from "@/components/avatar-upload-dialog"
 import { MemorialAvatarDialog } from "@/components/memorial-avatar-dialog"
-import { Pencil, Calendar, Flower, Heart, Save, X, MessageCircle } from "lucide-react"
+import {
+  Pencil,
+  Calendar,
+  Flower,
+  Heart,
+  Save,
+  X,
+  MessageCircle,
+  Share2,
+  Clock,
+  Users,
+  Camera,
+  Palette,
+  Settings,
+} from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 
 // Define types for our data structures
 interface Memorial {
@@ -62,15 +79,6 @@ interface VirtualFlower {
   created_at: string
 }
 
-interface MemoryAuthor {
-  id: string
-  username: string
-  avatar_url: string | null
-  email?: string
-  bio?: string | null
-  created_at?: string
-}
-
 interface ThemeColor {
   name: string
   color: string
@@ -113,7 +121,7 @@ export default function MemorialPage() {
   const [isSendingFlower, setIsSendingFlower] = useState(false)
   const [isCurrentUserCreator, setIsCurrentUserCreator] = useState(false)
 
-  // New state for bio editing
+  // Bio editing state
   const [isEditingBio, setIsEditingBio] = useState(false)
   const [editedBio, setEditedBio] = useState("")
   const [isSavingBio, setIsSavingBio] = useState(false)
@@ -229,7 +237,7 @@ export default function MemorialPage() {
           console.error("Error fetching memories:", memoriesError)
         }
 
-        // FIXED: Properly parse memories to handle various formats
+        // Parse memories to handle various formats
         let parsedMemories = []
         if (memoriesData?.memory_message) {
           try {
@@ -406,7 +414,7 @@ export default function MemorialPage() {
 
     fetchData()
 
-    // FIXED: Check for payment success from URL params
+    // Check for payment success from URL params
     const urlParams = new URLSearchParams(window.location.search)
     const paymentSuccess = urlParams.get("payment_success")
     const flowerData = urlParams.get("flower_data")
@@ -416,7 +424,7 @@ export default function MemorialPage() {
     }
   }, [pageName, supabase])
 
-  // FIXED: Handle payment success and add flower to database
+  // Handle payment success and add flower to database
   const handlePaymentSuccess = async (flowerDataString: string) => {
     try {
       const flowerData = JSON.parse(decodeURIComponent(flowerDataString))
@@ -454,7 +462,7 @@ export default function MemorialPage() {
     }
   }
 
-  // FIXED: Modified to redirect to PayPal FIRST, then handle payment confirmation
+  // Modified to redirect to PayPal FIRST, then handle payment confirmation
   const handleSendVirtualFlower = async () => {
     if (!user || !memorial) {
       console.error("Cannot send flower: User or memorial is null")
@@ -495,20 +503,20 @@ export default function MemorialPage() {
     router.refresh()
   }
 
-  // New function to handle editing bio
+  // Handle editing bio
   const handleEditBio = () => {
     if (!memorial) return
     setEditedBio(memorial.bio)
     setIsEditingBio(true)
   }
 
-  // New function to handle canceling bio edit
+  // Handle canceling bio edit
   const handleCancelEditBio = () => {
     setIsEditingBio(false)
     setEditedBio("")
   }
 
-  // New function to handle saving bio
+  // Handle saving bio
   const handleSaveBio = async () => {
     if (!memorial || !editedBio.trim()) return
 
@@ -591,27 +599,41 @@ export default function MemorialPage() {
     return `${currentHeaderStyle.style} from-${currentTheme.name}-100 to-${currentTheme.name}-300`
   }
 
+  // Calculate years lived
+  const getYearsLived = () => {
+    if (!memorial?.date_of_birth || !memorial?.date_of_passing) return null
+    const birth = new Date(memorial.date_of_birth)
+    const passing = new Date(memorial.date_of_passing)
+    const years = passing.getFullYear() - birth.getFullYear()
+    return years
+  }
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div
-          className={`animate-spin rounded-full h-8 w-8 border-b-2 ${currentTheme.textColor.replace("text", "border")}`}
-        ></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center">
+          <div
+            className={`animate-spin rounded-full h-12 w-12 border-b-2 ${currentTheme.textColor.replace("text", "border")} mx-auto mb-4`}
+          ></div>
+          <p className="text-gray-600">Loading memorial...</p>
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <div className="text-red-500 mb-4">{error}</div>
-        <Button
-          onClick={() => router.refresh()}
-          variant="outline"
-          className={`border-${currentTheme.name}-500 ${currentTheme.textColor} hover:bg-${currentTheme.name}-50`}
-        >
-          Try Again
-        </Button>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-red-500 mb-4 text-lg">{error}</div>
+          <Button
+            onClick={() => router.refresh()}
+            variant="outline"
+            className={`border-${currentTheme.name}-500 ${currentTheme.textColor} hover:bg-${currentTheme.name}-50`}
+          >
+            Try Again
+          </Button>
+        </div>
       </div>
     )
   }
@@ -626,374 +648,447 @@ export default function MemorialPage() {
     : null
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
-      <div className="container mx-auto">
-        <div className="flex flex-col md:flex-row">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="container mx-auto max-w-7xl">
+        <div className="flex flex-col lg:flex-row gap-6 p-4">
           {/* Left Sidebar */}
-          <div className="w-full md:w-1/4 p-4">
+          <div className="w-full lg:w-1/4">
             <div className="sticky top-4">
               <Sidebar />
             </div>
           </div>
 
           {/* Main Content */}
-          <div className="w-full md:w-1/2 bg-white min-h-screen shadow-sm">
-            {/* Header with dynamic styling */}
-            <div
-              className={`relative h-48 ${getHeaderClasses()} overflow-hidden`}
-              style={
-                currentHeaderStyle.name === "image" && headerImageUrl
-                  ? { backgroundImage: `url(${headerImageUrl})` }
-                  : {}
-              }
-            >
-              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-
-              {/* Memorial Avatar */}
-              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 z-30">
-                {isCurrentUserCreator && memorial ? (
-                  <MemorialAvatarDialog
-                    memorialId={memorial.id}
-                    avatarUrl={memorial.memorial_avatar_url || null}
-                    memorialName={memorial.name}
-                  >
-                    <div className="relative group cursor-pointer">
-                      <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-white shadow-md">
-                        {memorial.memorial_avatar_url ? (
-                          <Image
-                            src={memorial.memorial_avatar_url || "/placeholder.svg"}
-                            alt={memorial.name}
-                            width={96}
-                            height={96}
-                            className="object-cover w-full h-full"
-                          />
-                        ) : (
-                          <div
-                            className={`h-full w-full flex items-center justify-center ${currentTheme.superLightColor}`}
-                          >
-                            <span className={`text-3xl ${currentTheme.textColor} font-serif`}>
-                              {memorial.name[0]?.toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Pencil className="h-6 w-6 text-white" />
-                      </div>
-                    </div>
-                  </MemorialAvatarDialog>
-                ) : memorial?.memorial_avatar_url ? (
-                  <div className="h-24 w-24 rounded-full overflow-hidden border-4 border-white shadow-md">
-                    <Image
-                      src={memorial.memorial_avatar_url || "/placeholder.svg"}
-                      alt={memorial.name}
-                      width={96}
-                      height={96}
-                      className="object-cover w-full h-full"
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className={`h-24 w-24 rounded-full overflow-hidden border-4 border-white shadow-md flex items-center justify-center ${currentTheme.superLightColor}`}
-                  >
-                    <span className={`text-3xl ${currentTheme.textColor} font-serif`}>
-                      {memorial?.name[0]?.toUpperCase()}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Memorial Name and Dates */}
-            <div className="mt-16 text-center px-6">
-              <h1 className="text-3xl font-serif text-gray-800 mb-2">{memorial?.name}</h1>
-              <div className="flex items-center justify-center gap-2 text-gray-600 text-sm">
-                {memorial?.date_of_birth && (
-                  <span>
-                    {new Date(memorial.date_of_birth).toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </span>
-                )}
-                {memorial?.date_of_birth && memorial?.date_of_passing && <span>-</span>}
-                {memorial?.date_of_passing && (
-                  <span>
-                    {new Date(memorial.date_of_passing).toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Creator info */}
-            <div className="flex items-center justify-center gap-2 mt-4 text-sm text-gray-600">
-              <span>Created by</span>
-              <div className="flex items-center gap-1.5">
-                {isCurrentUserCreator && memorial?.creator ? (
-                  <AvatarUploadDialog
-                    userId={memorial.creator.id || memorial.created_by}
-                    avatarUrl={memorial.creator.avatar_url}
-                    username={memorial.creator.username}
-                  >
-                    <div className="relative group cursor-pointer">
-                      <div className="h-6 w-6 rounded-full overflow-hidden">
-                        <CustomAvatar
-                          user={{
-                            id: memorial.creator.id || memorial.created_by,
-                            username: memorial.creator.username,
-                            avatar_url: memorial.creator.avatar_url,
-                            email: "",
-                            bio: null,
-                            created_at: "",
-                          }}
-                          size={24}
-                        />
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Pencil className="h-3 w-3 text-white" />
-                      </div>
-                    </div>
-                  </AvatarUploadDialog>
-                ) : (
-                  <div className="h-6 w-6 rounded-full overflow-hidden">
-                    <CustomAvatar
-                      user={{
-                        id: memorial?.creator?.id || memorial?.created_by || "",
-                        username: memorial?.creator?.username || "Anonymous",
-                        avatar_url: memorial?.creator?.avatar_url || null,
-                        email: "",
-                        bio: null,
-                        created_at: "",
-                      }}
-                      size={24}
-                    />
-                  </div>
-                )}
-                <span className="font-medium">{memorial?.creator?.username || "Anonymous"}</span>
-              </div>
-            </div>
-
-            {/* Divider with flower */}
-            <div className="flex items-center justify-center my-6 px-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-              <div className={`mx-4 ${currentTheme.textColor}`}>
-                <Flower className="h-5 w-5" />
-              </div>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-            </div>
-
-            {/* Biography */}
-            <div className="px-8 mb-8">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl font-serif text-gray-700">Biography</h2>
-                {isCurrentUserCreator && !isEditingBio && (
-                  <button
-                    onClick={handleEditBio}
-                    className={`flex items-center gap-1 ${currentTheme.textColor} hover:opacity-80 text-sm`}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    <span>Edit</span>
-                  </button>
-                )}
-              </div>
-
-              {isEditingBio ? (
-                <div>
-                  <textarea
-                    value={editedBio}
-                    onChange={(e) => setEditedBio(e.target.value)}
-                    rows={5}
-                    className={`w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-${currentTheme.name}-500 text-sm`}
-                    placeholder="Write a biography..."
-                  ></textarea>
-                  <div className="flex justify-end gap-2 mt-2">
-                    <Button
-                      onClick={handleCancelEditBio}
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-3 text-xs border-gray-300 text-gray-700"
-                    >
-                      <X className="h-3.5 w-3.5 mr-1" />
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleSaveBio}
-                      disabled={isSavingBio}
-                      size="sm"
-                      className={`h-8 px-3 text-xs ${currentTheme.color} ${currentTheme.hoverColor} text-white`}
-                    >
-                      <Save className="h-3.5 w-3.5 mr-1" />
-                      {isSavingBio ? "Saving..." : "Save"}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-                  <p className="whitespace-pre-wrap">{memorial?.bio}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Divider with heart */}
-            <div className="flex items-center justify-center my-6 px-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-              <div className={`mx-4 ${currentTheme.textColor}`}>
-                <Heart className="h-5 w-5" />
-              </div>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-            </div>
-
-            {/* Virtual Flowers Section */}
-            <div className="px-8 mb-8">
-              <h2 className="text-xl font-serif text-gray-700 mb-4">Virtual Flowers</h2>
-
-              {user && (
-                <Button
-                  onClick={handleSendVirtualFlower}
-                  disabled={isSendingFlower}
-                  className={`w-full mb-4 ${currentTheme.color} ${currentTheme.hoverColor} text-white`}
+          <div className="w-full lg:w-1/2">
+            <div className="relative">
+              <Card className="overflow-visible shadow-xl border-0">
+                {/* Enhanced Header with FIXED avatar positioning */}
+                <div
+                  className={`relative h-64 ${getHeaderClasses()}`}
+                  style={
+                    currentHeaderStyle.name === "image" && headerImageUrl
+                      ? { backgroundImage: `url(${headerImageUrl})` }
+                      : {}
+                  }
                 >
-                  <Flower className="h-4 w-4 mr-2" />
-                  {isSendingFlower ? "Redirecting to Payment..." : "Send Virtual Flower ($5)"}
-                </Button>
-              )}
+                  {/* Overlay for better text readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
-                {virtualFlowers.length > 0 ? (
-                  virtualFlowers.map((flower) => (
-                    <div
-                      key={flower.id}
-                      className={`flex flex-col items-center p-3 ${currentTheme.superLightColor} rounded-lg border border-${currentTheme.name}-100`}
-                    >
-                      <div className="h-10 w-10 rounded-full overflow-hidden mb-2">
-                        <CustomAvatar
-                          user={{
-                            id: flower.sender_id || "",
-                            username: flower.sender_name,
-                            avatar_url: flower.sender_avatar,
-                            email: "",
-                            bio: null,
-                            created_at: "",
-                          }}
-                          size={40}
+                  {/* Settings button for creators */}
+                  {isCurrentUserCreator && (
+                    <div className="absolute top-4 right-4 z-20">
+                      <Button variant="secondary" size="sm" className="bg-white/90 backdrop-blur-sm hover:bg-white">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Customize
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* FIXED Memorial Avatar - Proper positioning and sizing */}
+                  <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 z-30">
+                    {isCurrentUserCreator && memorial ? (
+                      <MemorialAvatarDialog
+                        memorialId={memorial.id}
+                        avatarUrl={memorial.memorial_avatar_url || null}
+                        memorialName={memorial.name}
+                      >
+                        <div className="relative group cursor-pointer">
+                          <div className="h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-white">
+                            {memorial.memorial_avatar_url ? (
+                              <Image
+                                src={memorial.memorial_avatar_url || "/placeholder.svg"}
+                                alt={memorial.name}
+                                width={128}
+                                height={128}
+                                className="object-cover w-full h-full rounded-full"
+                                priority
+                              />
+                            ) : (
+                              <div
+                                className={`h-full w-full flex items-center justify-center ${currentTheme.superLightColor} rounded-full`}
+                              >
+                                <span className={`text-4xl ${currentTheme.textColor} font-serif`}>
+                                  {memorial.name[0]?.toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200">
+                            <Camera className="h-8 w-8 text-white" />
+                          </div>
+                        </div>
+                      </MemorialAvatarDialog>
+                    ) : memorial?.memorial_avatar_url ? (
+                      <div className="h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-white">
+                        <Image
+                          src={memorial.memorial_avatar_url || "/placeholder.svg"}
+                          alt={memorial.name}
+                          width={128}
+                          height={128}
+                          className="object-cover w-full h-full rounded-full"
+                          priority
                         />
                       </div>
-                      <div className="text-center">
-                        <div className="text-xs font-medium text-gray-800 truncate max-w-full">
-                          {flower.sender_name}
+                    ) : (
+                      <div
+                        className={`h-32 w-32 rounded-full overflow-hidden border-4 border-white shadow-2xl flex items-center justify-center ${currentTheme.superLightColor}`}
+                      >
+                        <span className={`text-4xl ${currentTheme.textColor} font-serif`}>
+                          {memorial?.name[0]?.toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <CardContent className="pt-24 pb-8">
+                  {/* Memorial Name and Dates - Enhanced */}
+                  <div className="text-center mb-8">
+                    <h1 className="text-4xl font-serif text-gray-800 mb-3">{memorial?.name}</h1>
+
+                    <div className="flex flex-wrap items-center justify-center gap-4 text-gray-600">
+                      {memorial?.date_of_birth && memorial?.date_of_passing && (
+                        <Badge variant="secondary" className="text-sm px-3 py-1">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {new Date(memorial.date_of_birth).getFullYear()} -{" "}
+                          {new Date(memorial.date_of_passing).getFullYear()}
+                          {getYearsLived() && ` (${getYearsLived()} years)`}
+                        </Badge>
+                      )}
+
+                      {memorial?.anniversary && (
+                        <Badge
+                          variant="outline"
+                          className={`text-sm px-3 py-1 border-${currentTheme.name}-200 ${currentTheme.textColor}`}
+                        >
+                          <Heart className="h-3 w-3 mr-1" />
+                          Anniversary: {new Date(memorial.anniversary).toLocaleDateString()}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* FIXED Creator info - Proper avatar sizing and positioning */}
+                  <div className="flex items-center justify-center gap-3 mb-8 p-4 bg-gray-50 rounded-lg">
+                    <span className="text-sm text-gray-600">Memorial created by</span>
+                    <div className="flex items-center gap-2">
+                      {isCurrentUserCreator && memorial?.creator ? (
+                        <AvatarUploadDialog
+                          userId={memorial.creator.id || memorial.created_by}
+                          avatarUrl={memorial.creator.avatar_url}
+                          username={memorial.creator.username}
+                        >
+                          <div className="relative group cursor-pointer">
+                            <div className="h-8 w-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm">
+                              <CustomAvatar
+                                user={{
+                                  id: memorial.creator.id || memorial.created_by,
+                                  username: memorial.creator.username,
+                                  avatar_url: memorial.creator.avatar_url,
+                                  email: "",
+                                  bio: null,
+                                  created_at: "",
+                                }}
+                                size={32}
+                              />
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Pencil className="h-3 w-3 text-white" />
+                            </div>
+                          </div>
+                        </AvatarUploadDialog>
+                      ) : (
+                        <div className="h-8 w-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm">
+                          <CustomAvatar
+                            user={{
+                              id: memorial?.creator?.id || memorial?.created_by || "",
+                              username: memorial?.creator?.username || "Anonymous",
+                              avatar_url: memorial?.creator?.avatar_url || null,
+                              email: "",
+                              bio: null,
+                              created_at: "",
+                            }}
+                            size={32}
+                          />
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {new Date(flower.created_at).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                          })}
+                      )}
+                      <span className="font-medium text-gray-800">{memorial?.creator?.username || "Anonymous"}</span>
+                    </div>
+                  </div>
+
+                  <Separator className="my-8" />
+
+                  {/* Biography Section - Enhanced */}
+                  <div className="mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-2xl font-serif text-gray-700 flex items-center gap-2">
+                        <Heart className={`h-5 w-5 ${currentTheme.textColor}`} />
+                        Life Story
+                      </h2>
+                      {isCurrentUserCreator && !isEditingBio && (
+                        <Button
+                          onClick={handleEditBio}
+                          variant="ghost"
+                          size="sm"
+                          className={`${currentTheme.textColor} hover:bg-${currentTheme.name}-50`}
+                        >
+                          <Pencil className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                      )}
+                    </div>
+
+                    {isEditingBio ? (
+                      <div className="space-y-4">
+                        <textarea
+                          value={editedBio}
+                          onChange={(e) => setEditedBio(e.target.value)}
+                          rows={6}
+                          className={`w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-${currentTheme.name}-500 focus:border-transparent resize-none`}
+                          placeholder="Share the story of their life..."
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button onClick={handleCancelEditBio} variant="outline" size="sm">
+                            <X className="h-4 w-4 mr-1" />
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleSaveBio}
+                            disabled={isSavingBio}
+                            size="sm"
+                            className={`${currentTheme.color} ${currentTheme.hoverColor} text-white`}
+                          >
+                            <Save className="h-4 w-4 mr-1" />
+                            {isSavingBio ? "Saving..." : "Save"}
+                          </Button>
                         </div>
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="col-span-full text-center text-gray-500 text-sm py-6">
-                    <p>No virtual flowers yet</p>
+                    ) : (
+                      <div className="prose prose-gray max-w-none">
+                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50 p-4 rounded-lg">
+                          {memorial?.bio || "No biography has been written yet."}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
 
-            {/* Divider with message */}
-            <div className="flex items-center justify-center my-6 px-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-              <div className={`mx-4 ${currentTheme.textColor}`}>
-                <MessageCircle className="h-5 w-5" />
-              </div>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-            </div>
+                  <Separator className="my-8" />
 
-            {/* Add Memory Form */}
-            {memorial && (
-              <div className="px-8 mb-6">
-                <h2 className="text-xl font-serif text-gray-700 mb-4">Share a Memory</h2>
-                <AddMemoryForm memorialId={memorial.id} onMemoryAdded={handleNewMemory} themeColor={currentTheme} />
-              </div>
-            )}
+                  {/* Virtual Flowers Section - Enhanced */}
+                  <div className="mb-8">
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-2xl font-serif text-gray-700 flex items-center gap-2">
+                        <Flower className={`h-5 w-5 ${currentTheme.textColor}`} />
+                        Virtual Flowers
+                        <Badge variant="secondary" className="ml-2">
+                          {virtualFlowers.length}
+                        </Badge>
+                      </h2>
+                    </div>
 
-            {/* Memories Feed */}
-            <div className="px-8 pb-12">
-              <h2 className="text-xl font-serif text-gray-700 mb-4">Memories</h2>
+                    {user && (
+                      <Button
+                        onClick={handleSendVirtualFlower}
+                        disabled={isSendingFlower}
+                        className={`w-full mb-6 ${currentTheme.color} ${currentTheme.hoverColor} text-white h-12 text-lg`}
+                      >
+                        <Flower className="h-5 w-5 mr-2" />
+                        {isSendingFlower ? "Redirecting to Payment..." : "Send Virtual Flower ($5)"}
+                      </Button>
+                    )}
 
-              {memories.length > 0 ? (
-                <div className="space-y-6">
-                  {memories.map((memory, index) => (
-                    <MemoryCard
-                      key={index}
-                      memoryId={index.toString()}
-                      memorialId={memorial?.id || ""}
-                      memory={memory}
-                      pageName={memorial?.name || pageName}
-                      currentUser={currentUserForMemoryCard}
-                      isCreator={isCurrentUserCreator}
-                      themeColor={currentTheme}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-gray-500 py-8 bg-gray-50 rounded-lg">
-                  <p>No memories have been shared yet.</p>
-                  <p className="text-sm mt-1">Be the first to share a memory.</p>
-                </div>
-              )}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      {virtualFlowers.length > 0 ? (
+                        virtualFlowers.map((flower) => (
+                          <Card
+                            key={flower.id}
+                            className={`p-4 text-center hover:shadow-md transition-shadow border-${currentTheme.name}-100`}
+                          >
+                            <div className="h-12 w-12 rounded-full overflow-hidden mx-auto mb-3 ring-2 ring-gray-100">
+                              <CustomAvatar
+                                user={{
+                                  id: flower.sender_id || "",
+                                  username: flower.sender_name,
+                                  avatar_url: flower.sender_avatar,
+                                  email: "",
+                                  bio: null,
+                                  created_at: "",
+                                }}
+                                size={48}
+                              />
+                            </div>
+                            <div className="text-sm font-medium text-gray-800 truncate">{flower.sender_name}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {new Date(flower.created_at).toLocaleDateString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </div>
+                          </Card>
+                        ))
+                      ) : (
+                        <div className="col-span-full text-center py-12 text-gray-500">
+                          <Flower className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                          <p className="text-lg mb-2">No flowers yet</p>
+                          <p className="text-sm">Be the first to send a virtual flower</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator className="my-8" />
+
+                  {/* Add Memory Form - Enhanced */}
+                  {memorial && (
+                    <div className="mb-8">
+                      <h2 className="text-2xl font-serif text-gray-700 mb-6 flex items-center gap-2">
+                        <MessageCircle className={`h-5 w-5 ${currentTheme.textColor}`} />
+                        Share a Memory
+                      </h2>
+                      <AddMemoryForm
+                        memorialId={memorial.id}
+                        onMemoryAdded={handleNewMemory}
+                        themeColor={currentTheme}
+                      />
+                    </div>
+                  )}
+
+                  {/* Memories Feed - Enhanced */}
+                  <div>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-2xl font-serif text-gray-700 flex items-center gap-2">
+                        <Users className={`h-5 w-5 ${currentTheme.textColor}`} />
+                        Memories
+                        <Badge variant="secondary" className="ml-2">
+                          {memories.length}
+                        </Badge>
+                      </h2>
+                    </div>
+
+                    {memories.length > 0 ? (
+                      <div className="space-y-6">
+                        {memories.map((memory, index) => (
+                          <MemoryCard
+                            key={index}
+                            memoryId={index.toString()}
+                            memorialId={memorial?.id || ""}
+                            memory={memory}
+                            pageName={memorial?.name || pageName}
+                            currentUser={currentUserForMemoryCard}
+                            isCreator={isCurrentUserCreator}
+                            themeColor={currentTheme}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <Card className="p-12 text-center bg-gray-50 border-dashed border-2 border-gray-200">
+                        <MessageCircle className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                        <h3 className="text-lg font-medium text-gray-600 mb-2">No memories shared yet</h3>
+                        <p className="text-gray-500 mb-4 leading-relaxed">Be the first to share a cherished memory</p>
+                        {user && (
+                          <Button
+                            onClick={() => document.querySelector("textarea")?.focus()}
+                            variant="outline"
+                            className={`w-full border-${currentTheme.name}-200 ${currentTheme.textColor} hover:bg-${currentTheme.name}-50`}
+                          >
+                            Share First Memory
+                          </Button>
+                        )}
+                      </Card>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
-          {/* Right Sidebar */}
-          <div className="w-full md:w-1/4 p-4">
-            <div className="sticky top-4 bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-serif text-gray-700 mb-3">About This Memorial</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                This memorial page was created to honor and remember {memorial?.name}. Share your memories, photos, and
-                pay tribute by sending virtual flowers.
-              </p>
-
-              {memorial?.anniversary && (
-                <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Anniversary</h4>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className={`h-4 w-4 ${currentTheme.textColor}`} />
-                    <span>
-                      {new Date(memorial.anniversary).toLocaleDateString(undefined, {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+          {/* Right Sidebar - Enhanced */}
+          <div className="w-full lg:w-1/4">
+            <div className="sticky top-4 space-y-6">
+              {/* Memorial Stats Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Clock className={`h-5 w-5 ${currentTheme.textColor}`} />
+                    Memorial Stats
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Memories</span>
+                    <Badge variant="secondary">{memories.length}</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Virtual Flowers</span>
+                    <Badge variant="secondary">{virtualFlowers.length}</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Created</span>
+                    <span className="text-sm text-gray-800">
+                      {memorial && new Date(memorial.date_of_passing).toLocaleDateString()}
                     </span>
                   </div>
-                </div>
-              )}
+                </CardContent>
+              </Card>
 
-              <div className="pt-4 border-t border-gray-100">
-                <Button
-                  variant="outline"
-                  className={`w-full border-${currentTheme.name}-200 ${currentTheme.textColor} hover:bg-${currentTheme.name}-50`}
-                  onClick={() => {
-                    if (typeof navigator !== "undefined" && navigator.share) {
-                      navigator.share({
-                        title: `Memorial for ${memorial?.name}`,
-                        text: `Visit the memorial page for ${memorial?.name}`,
-                        url: window.location.href,
-                      })
-                    } else {
-                      navigator.clipboard.writeText(window.location.href)
-                      alert("Link copied to clipboard")
-                    }
-                  }}
-                >
-                  Share This Memorial
-                </Button>
-              </div>
+              {/* About Memorial Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">About This Memorial</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                    This memorial page was created to honor and remember {memorial?.name}. Share your memories, photos,
+                    and pay tribute by sending virtual flowers.
+                  </p>
+
+                  <Button
+                    variant="outline"
+                    className={`w-full border-${currentTheme.name}-200 ${currentTheme.textColor} hover:bg-${currentTheme.name}-50`}
+                    onClick={() => {
+                      if (typeof navigator !== "undefined" && navigator.share) {
+                        navigator.share({
+                          title: `Memorial for ${memorial?.name}`,
+                          text: `Visit the memorial page for ${memorial?.name}`,
+                          url: window.location.href,
+                        })
+                      } else {
+                        navigator.clipboard.writeText(window.location.href)
+                        alert("Link copied to clipboard")
+                      }
+                    }}
+                  >
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Share Memorial
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Quick Actions for Creators */}
+              {isCurrentUserCreator && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Settings className={`h-5 w-5 ${currentTheme.textColor}`} />
+                      Quick Actions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Button variant="outline" size="sm" className="w-full justify-start" onClick={handleEditBio}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit Biography
+                    </Button>
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <Palette className="h-4 w-4 mr-2" />
+                      Change Theme
+                    </Button>
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <Camera className="h-4 w-4 mr-2" />
+                      Update Photos
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </div>
