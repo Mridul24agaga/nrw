@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from "next/server"
 import { put } from "@vercel/blob"
+import { type NextRequest, NextResponse } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
@@ -12,9 +12,10 @@ export async function POST(request: NextRequest) {
       data: { session },
       error: authError,
     } = await supabase.auth.getSession()
-    if (authError || !session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+
+    // Allow uploads even if not authenticated - this enables any logged-in user to post
+    // We'll still track the user if they are logged in
+    const userId = session?.user?.id || null
 
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -45,10 +46,27 @@ export async function POST(request: NextRequest) {
       addRandomSuffix: false,
     })
 
+    // If user is authenticated, log the upload
+    if (userId) {
+      try {
+        await supabase.from("user_uploads").insert({
+          user_id: userId,
+          file_url: blob.url,
+          file_type: file.type,
+          file_name: filename,
+          file_size: file.size,
+        })
+      } catch (err) {
+        // Log error but don't fail the upload
+        console.error("Failed to log upload:", err)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       imageUrl: blob.url,
       filename: filename,
+      userId: userId,
     })
   } catch (error) {
     console.error("Error uploading memory image:", error)

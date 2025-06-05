@@ -26,10 +26,13 @@ import {
   Camera,
   Palette,
   Settings,
+  UserPlus,
+  Unlock,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 // Define types for our data structures
 interface Memorial {
@@ -938,18 +941,55 @@ export default function MemorialPage() {
 
                   <Separator className="my-8" />
 
-                  {/* Add Memory Form - Enhanced */}
+                  {/* Enhanced Memory Sharing Section */}
                   {memorial && (
                     <div className="mb-8">
-                      <h2 className="text-2xl font-serif text-gray-700 mb-6 flex items-center gap-2">
-                        <MessageCircle className={`h-5 w-5 ${currentTheme.textColor}`} />
-                        Share a Memory
-                      </h2>
-                      <AddMemoryForm
-                        memorialId={memorial.id}
-                        onMemoryAdded={handleNewMemory}
-                        themeColor={currentTheme}
-                      />
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-2xl font-serif text-gray-700 flex items-center gap-2">
+                          <MessageCircle className={`h-5 w-5 ${currentTheme.textColor}`} />
+                          Share a Memory
+                        </h2>
+                        {user && (
+                          <Badge variant="outline" className="flex items-center gap-1">
+                            <Unlock className="h-3 w-3" />
+                            Open to All
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* User Status Alert */}
+                      {!user ? (
+                        <Alert className="mb-6">
+                          <UserPlus className="h-4 w-4" />
+                          <AlertDescription>
+                            Please{" "}
+                            <Button
+                              variant="link"
+                              className="p-0 h-auto font-medium"
+                              onClick={() => router.push("/login")}
+                            >
+                              sign in
+                            </Button>{" "}
+                            to share memories and send virtual flowers on this memorial page.
+                          </AlertDescription>
+                        </Alert>
+                      ) : (
+                        <Alert className="mb-6 border-green-200 bg-green-50">
+                          <Unlock className="h-4 w-4 text-green-600" />
+                          <AlertDescription className="text-green-800">
+                            <strong>You can share memories!</strong> This memorial is open for anyone to contribute
+                            memories, photos, and tributes.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {user && (
+                        <AddMemoryForm
+                          memorialId={memorial.id}
+                          onMemoryAdded={handleNewMemory}
+                          themeColor={currentTheme}
+                        />
+                      )}
                     </div>
                   )}
 
@@ -984,14 +1024,26 @@ export default function MemorialPage() {
                       <Card className="p-12 text-center bg-gray-50 border-dashed border-2 border-gray-200">
                         <MessageCircle className="h-16 w-16 mx-auto mb-4 text-gray-300" />
                         <h3 className="text-lg font-medium text-gray-600 mb-2">No memories shared yet</h3>
-                        <p className="text-gray-500 mb-4 leading-relaxed">Be the first to share a cherished memory</p>
-                        {user && (
+                        <p className="text-gray-500 mb-4 leading-relaxed">
+                          {user
+                            ? "Be the first to share a cherished memory"
+                            : "Sign in to be the first to share a memory"}
+                        </p>
+                        {user ? (
                           <Button
                             onClick={() => document.querySelector("textarea")?.focus()}
                             variant="outline"
                             className={`w-full border-${currentTheme.name}-200 ${currentTheme.textColor} hover:bg-${currentTheme.name}-50`}
                           >
                             Share First Memory
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => router.push("/login")}
+                            variant="outline"
+                            className={`w-full border-${currentTheme.name}-200 ${currentTheme.textColor} hover:bg-${currentTheme.name}-50`}
+                          >
+                            Sign In to Share
                           </Button>
                         )}
                       </Card>
@@ -1028,6 +1080,13 @@ export default function MemorialPage() {
                       {memorial && new Date(memorial.date_of_passing).toLocaleDateString()}
                     </span>
                   </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Sharing</span>
+                    <Badge variant="outline" className="text-green-600 border-green-200">
+                      <Unlock className="h-3 w-3 mr-1" />
+                      Open
+                    </Badge>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1038,29 +1097,43 @@ export default function MemorialPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                    This memorial page was created to honor and remember {memorial?.name}. Share your memories, photos,
-                    and pay tribute by sending virtual flowers.
+                    This memorial page was created to honor and remember {memorial?.name}.
+                    {user
+                      ? " Share your memories, photos, and pay tribute by sending virtual flowers."
+                      : " Sign in to share memories, photos, and send virtual flowers."}
                   </p>
 
-                  <Button
-                    variant="outline"
-                    className={`w-full border-${currentTheme.name}-200 ${currentTheme.textColor} hover:bg-${currentTheme.name}-50`}
-                    onClick={() => {
-                      if (typeof navigator !== "undefined" && navigator.share) {
-                        navigator.share({
-                          title: `Memorial for ${memorial?.name}`,
-                          text: `Visit the memorial page for ${memorial?.name}`,
-                          url: window.location.href,
-                        })
-                      } else {
-                        navigator.clipboard.writeText(window.location.href)
-                        alert("Link copied to clipboard")
-                      }
-                    }}
-                  >
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Share Memorial
-                  </Button>
+                  <div className="space-y-3">
+                    <Button
+                      variant="outline"
+                      className={`w-full border-${currentTheme.name}-200 ${currentTheme.textColor} hover:bg-${currentTheme.name}-50`}
+                      onClick={() => {
+                        if (typeof navigator !== "undefined" && navigator.share) {
+                          navigator.share({
+                            title: `Memorial for ${memorial?.name}`,
+                            text: `Visit the memorial page for ${memorial?.name}`,
+                            url: window.location.href,
+                          })
+                        } else {
+                          navigator.clipboard.writeText(window.location.href)
+                          alert("Link copied to clipboard")
+                        }
+                      }}
+                    >
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share Memorial
+                    </Button>
+
+                    {!user && (
+                      <Button
+                        onClick={() => router.push("/login")}
+                        className={`w-full ${currentTheme.color} ${currentTheme.hoverColor} text-white`}
+                      >
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Sign In to Contribute
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1070,7 +1143,7 @@ export default function MemorialPage() {
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Settings className={`h-5 w-5 ${currentTheme.textColor}`} />
-                      Quick Actions
+                      Creator Actions
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -1089,6 +1162,21 @@ export default function MemorialPage() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Community Guidelines */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Community Guidelines</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm text-gray-600 space-y-2">
+                    <p>• Share respectful memories and tributes</p>
+                    <p>• Keep content appropriate and family-friendly</p>
+                    <p>• Upload meaningful photos and stories</p>
+                    <p>• Be kind and supportive to other contributors</p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>

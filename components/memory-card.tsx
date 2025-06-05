@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { likeMemory, addMemoryComment, deleteMemory } from "@/actions/memory-actions"
 import { CustomAvatar } from "./custom-avatar"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface ThemeColor {
   name: string
@@ -79,6 +80,7 @@ export function MemoryCard({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Parse memory content on mount
   useEffect(() => {
@@ -200,6 +202,7 @@ export function MemoryCard({
   const formattedDate = new Date(createdAt).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    year: "numeric",
   })
 
   // Check if user has liked this memory and get counts on component mount
@@ -251,7 +254,8 @@ export function MemoryCard({
   const handleLike = async () => {
     if (!currentUser) {
       // Prompt to login
-      alert("Please log in to like this memory")
+      setError("Please log in to like this memory")
+      setTimeout(() => setError(null), 3000)
       return
     }
 
@@ -267,12 +271,16 @@ export function MemoryCard({
         setIsLiked(isLiked)
         setLikeCount((prev) => (isLiked ? prev + 1 : prev - 1))
         console.error(result.error)
+        setError(result.error)
+        setTimeout(() => setError(null), 3000)
       }
     } catch (error) {
       // Revert optimistic update on error
       setIsLiked(isLiked)
       setLikeCount((prev) => (isLiked ? prev + 1 : prev - 1))
       console.error("Error liking memory:", error)
+      setError("Failed to like memory. Please try again.")
+      setTimeout(() => setError(null), 3000)
     }
   }
 
@@ -298,6 +306,8 @@ export function MemoryCard({
         setComments(data || [])
       } catch (error) {
         console.error("Error fetching comments:", error)
+        setError("Failed to load comments. Please try again.")
+        setTimeout(() => setError(null), 3000)
       }
     }
   }
@@ -306,20 +316,26 @@ export function MemoryCard({
     e.preventDefault()
 
     if (!currentUser) {
-      // Prompt to login
-      alert("Please log in to comment")
+      setError("Please log in to comment")
+      setTimeout(() => setError(null), 3000)
       return
     }
 
-    if (!newComment.trim()) return
+    if (!newComment.trim()) {
+      setError("Comment cannot be empty")
+      setTimeout(() => setError(null), 3000)
+      return
+    }
 
     setIsSubmitting(true)
+    setError(null)
 
     try {
       const result = await addMemoryComment(memoryId, newComment)
 
       if (result.error) {
         console.error(result.error)
+        setError(result.error)
         return
       }
 
@@ -340,21 +356,24 @@ export function MemoryCard({
       setNewComment("")
     } catch (error) {
       console.error("Error adding comment:", error)
+      setError("Failed to add comment. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!isCreator) return
+    if (!isCreator && !(currentUser && author && currentUser.id === author.id)) return
 
     setIsDeleting(true)
+    setError(null)
 
     try {
       const result = await deleteMemory(memoryId, memorialId)
 
       if (result.error) {
         console.error(result.error)
+        setError(result.error)
         return
       }
 
@@ -362,6 +381,7 @@ export function MemoryCard({
       router.refresh()
     } catch (error) {
       console.error("Error deleting memory:", error)
+      setError("Failed to delete memory. Please try again.")
     } finally {
       setIsDeleting(false)
       setShowDeleteConfirm(false)
@@ -372,7 +392,13 @@ export function MemoryCard({
   const canDelete = isCreator || (currentUser && author && currentUser.id === author.id)
 
   return (
-    <div className={`bg-white rounded-2xl border border-gray-200 p-4 mb-4 ${themeColor.superLightColor}`}>
+    <div className={`bg-white rounded-2xl border border-gray-200 p-4 mb-4 shadow-sm hover:shadow-md transition-shadow`}>
+      {error && (
+        <Alert className="mb-4 border-red-200 bg-red-50">
+          <AlertDescription className="text-red-800">{error}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex items-start mb-4">
         <div className="flex-shrink-0 mr-3 z-10">
           {author ? (
@@ -530,7 +556,7 @@ export function MemoryCard({
             <p className="text-gray-500 text-sm mb-3">No comments yet. Be the first to comment!</p>
           )}
 
-          {currentUser && (
+          {currentUser ? (
             <form onSubmit={handleAddComment} className="flex items-center">
               <div className="flex-shrink-0 mr-2">
                 <div className="h-8 w-8 rounded-full overflow-hidden">
@@ -564,6 +590,19 @@ export function MemoryCard({
                 </button>
               </div>
             </form>
+          ) : (
+            <div className="text-center py-2">
+              <p className="text-sm text-gray-600">
+                Please{" "}
+                <button
+                  onClick={() => router.push("/login")}
+                  className={`${themeColor.textColor} font-medium hover:underline`}
+                >
+                  sign in
+                </button>{" "}
+                to comment on this memory.
+              </p>
+            </div>
           )}
         </div>
       )}
