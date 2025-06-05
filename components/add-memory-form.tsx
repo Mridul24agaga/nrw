@@ -136,7 +136,7 @@ export function AddMemoryForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!content.trim() && !imageUrl) return
+    if ((!content || !content.trim()) && !imageUrl) return
 
     setIsSubmitting(true)
     setError(null)
@@ -156,9 +156,9 @@ export function AddMemoryForm({
         console.error("Error fetching profile:", profileError)
       }
 
-      // Create memory object with content, image, and author information
-      const memoryObject: MemoryObject = {
-        content,
+      // Create new memory object
+      const newMemory: MemoryObject = {
+        content: content.trim(),
         imageUrl: imageUrl || null,
         createdAt: new Date().toISOString(),
         author: {
@@ -168,7 +168,7 @@ export function AddMemoryForm({
         },
       }
 
-      // Get current memories
+      // Get current memories from database
       const { data: currentData, error: fetchError } = await supabase
         .from("memorialpages212515")
         .select("memory_message")
@@ -177,94 +177,60 @@ export function AddMemoryForm({
 
       if (fetchError) throw fetchError
 
-      // Parse existing memories if they exist
+      // Initialize existing memories array
       let existingMemories: MemoryObject[] = []
 
-      try {
-        if (currentData?.memory_message) {
-          // Ensure we're working with an array
-          const memoryArray = Array.isArray(currentData.memory_message)
-            ? currentData.memory_message
-            : [currentData.memory_message]
-
-          existingMemories = memoryArray.map((memory: any) => {
-            // If memory is a string, it's an old format memory
-            if (typeof memory === "string") {
-              return {
-                content: memory,
-                imageUrl: null,
-                createdAt: new Date().toISOString(),
-              }
+      // Parse existing memories safely
+      if (currentData?.memory_message) {
+        try {
+          // If it's already an array, use it directly
+          if (Array.isArray(currentData.memory_message)) {
+            existingMemories = currentData.memory_message.filter((memory) => memory !== null && memory !== undefined)
+          }
+          // If it's a single object, wrap it in an array
+          else if (typeof currentData.memory_message === "object" && currentData.memory_message !== null) {
+            existingMemories = [currentData.memory_message]
+          }
+          // If it's a string (old format), try to parse it
+          else if (typeof currentData.memory_message === "string") {
+            try {
+              const parsed = JSON.parse(currentData.memory_message)
+              existingMemories = Array.isArray(parsed) ? parsed : [parsed]
+            } catch {
+              // If parsing fails, treat as a simple string memory
+              existingMemories = [
+                {
+                  content: currentData.memory_message,
+                  imageUrl: null,
+                  createdAt: new Date().toISOString(),
+                },
+              ]
             }
-
-            // If memory is already an object but might be stringified JSON
-            if (typeof memory === "object") {
-              // Check if it's a nested JSON structure that needs parsing
-              if (
-                memory.content &&
-                typeof memory.content === "string" &&
-                (memory.content.startsWith("{") || memory.content.includes('\\"'))
-              ) {
-                try {
-                  // Try to parse potentially nested JSON
-                  let parsedContent = memory.content
-
-                  // Keep parsing until we get a clean object
-                  while (
-                    typeof parsedContent === "string" &&
-                    (parsedContent.startsWith("{") || parsedContent.includes('\\"'))
-                  ) {
-                    parsedContent = JSON.parse(parsedContent)
-                  }
-
-                  // If we ended up with an object with the right structure, use it
-                  if (typeof parsedContent === "object" && parsedContent.content) {
-                    return {
-                      content: parsedContent.content,
-                      imageUrl: parsedContent.imageUrl || null,
-                      createdAt: parsedContent.createdAt || new Date().toISOString(),
-                      author: parsedContent.author || memory.author,
-                    }
-                  }
-                } catch (e) {
-                  console.error("Error parsing nested memory:", e)
-                }
-              }
-
-              // Return the memory object with defaults for missing fields
-              return {
-                content: typeof memory.content === "string" ? memory.content : "",
-                imageUrl: memory.imageUrl || null,
-                createdAt: memory.createdAt || new Date().toISOString(),
-                author: memory.author,
-              }
-            }
-
-            // Fallback for unexpected formats
-            return {
-              content: String(memory),
-              imageUrl: null,
-              createdAt: new Date().toISOString(),
-            }
-          })
+          }
+        } catch (error) {
+          console.error("Error parsing existing memories:", error)
+          existingMemories = []
         }
-      } catch (parseError) {
-        console.error("Error parsing existing memories:", parseError)
-        existingMemories = []
       }
 
-      // Update with new memory
+      // Add new memory to existing memories
+      const updatedMemories = [...existingMemories, newMemory]
+
+      // Update database with all memories
       const { error: updateError } = await supabase
         .from("memorialpages212515")
         .update({
-          memory_message: [...existingMemories, memoryObject],
+          memory_message: updatedMemories,
         })
         .eq("id", memorialId)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error("Database update error:", updateError)
+        throw updateError
+      }
 
       // Call the callback with the new memory
-      onMemoryAdded(content, imageUrl || undefined)
+      onMemoryAdded(content || "", imageUrl || undefined)
 
       // Reset form
       setContent("")
@@ -272,6 +238,8 @@ export function AddMemoryForm({
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
+
+      console.log("Memory added successfully. Total memories:", updatedMemories.length)
     } catch (error) {
       console.error("Error adding memory:", error)
       setError("Failed to add memory. Please try again.")
@@ -301,7 +269,12 @@ export function AddMemoryForm({
             {imageUrl && (
               <div className="mt-3 relative">
                 <div className="relative rounded-lg overflow-hidden w-full h-48">
-                  <Image src={imageUrl || "/placeholder.svg"} alt="Memory image" fill className="object-cover" />
+                  <Image
+                    src={imageUrl || "/placeholder.svg?height=192&width=400&text=Memory+Image"}
+                    alt="Memory image"
+                    fill
+                    className="object-cover"
+                  />
                 </div>
                 <button
                   type="button"

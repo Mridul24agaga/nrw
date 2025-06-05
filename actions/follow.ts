@@ -1,13 +1,11 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClient } from "@/utils/server"
 import { revalidatePath } from "next/cache"
 import type { FollowResponse } from "@/lib/types"
 
 export async function toggleFollow(userIdToToggle: string): Promise<FollowResponse> {
-  const cookieStore = cookies()
-  const supabase = createServerComponentClient({ cookies: () => cookieStore })
+  const supabase = await createClient()
 
   try {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
@@ -70,4 +68,3 @@ export async function toggleFollow(userIdToToggle: string): Promise<FollowRespon
     throw error
   }
 }
-

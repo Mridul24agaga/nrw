@@ -290,16 +290,12 @@ export async function getPostsWithComments(memorialId: string) {
   const cookieStore = cookies()
   const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
+  // Get posts first
   const { data: posts, error: postsError } = await supabase
     .from("posts")
     .select(`
       *,
-      user:profiles!user_id (username, avatar_url),
-      comments (
-        *,
-        user:profiles!user_id (username, avatar_url)
-      ),
-      likes (count)
+      user:profiles!user_id (username, avatar_url)
     `)
     .eq("memorial_id", memorialId)
     .order("created_at", { ascending: false })
@@ -309,6 +305,38 @@ export async function getPostsWithComments(memorialId: string) {
     return null
   }
 
-  return posts
-}
+  // Get comments and likes separately for each post
+  const postsWithData = await Promise.all(
+    posts.map(async (post) => {
+      // Get comments for this specific post
+      const { data: comments } = await supabase
+        .from("comments")
+        .select(`
+          id,
+          content,
+          created_at,
+          user_id,
+          user:profiles!user_id (username, avatar_url)
+        `)
+        .eq("post_id", post.id)
+        .order("created_at", { ascending: true })
 
+      // Get likes for this specific post
+      const { data: likes } = await supabase
+        .from("likes")
+        .select("id, user_id")
+        .eq("post_id", post.id)
+
+      return {
+        ...post,
+        comments: comments || [],
+        likes: {
+          count: likes ? likes.length : 0,
+          data: likes || []
+        }
+      }
+    })
+  )
+
+  return postsWithData
+}

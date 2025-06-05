@@ -7,7 +7,7 @@ import { PostActions } from "./post-actions"
 import { FollowButton } from "./follow-button"
 import { formatDistanceToNow } from "date-fns"
 import { CustomAvatar } from "./custom-avatar"
-import type { User } from "@/lib/types" // Import the actual User type
+import type { User } from "@/lib/types"
 
 interface PostProps {
   post: {
@@ -39,48 +39,89 @@ export function Post({ post }: PostProps) {
   const fetchUserInteractions = async (userId: string) => {
     if (!userId) return
 
-    const [userLike, userBookmark] = await Promise.all([
-      supabase.from("post_likes").select().eq("post_id", post.id).eq("user_id", userId).single(),
-      supabase.from("post_bookmarks").select().eq("post_id", post.id).eq("user_id", userId).single(),
-    ])
+    try {
+      // Fix: Use maybeSingle() instead of single() to handle cases where no record exists
+      const [userLikeResult, userBookmarkResult] = await Promise.all([
+        supabase.from("post_likes").select("*").eq("post_id", post.id).eq("user_id", userId).maybeSingle(),
+        supabase.from("post_bookmarks").select("*").eq("post_id", post.id).eq("user_id", userId).maybeSingle(),
+      ])
 
-    setIsLiked(!!userLike.data)
-    setIsBookmarked(!!userBookmark.data)
+      // Check for errors
+      if (userLikeResult.error && userLikeResult.error.code !== "PGRST116") {
+        console.error("Error fetching user likes:", userLikeResult.error)
+      }
+      if (userBookmarkResult.error && userBookmarkResult.error.code !== "PGRST116") {
+        console.error("Error fetching user bookmarks:", userBookmarkResult.error)
+      }
+
+      setIsLiked(!!userLikeResult.data)
+      setIsBookmarked(!!userBookmarkResult.data)
+    } catch (error) {
+      console.error("Error in fetchUserInteractions:", error)
+    }
   }
 
   // Function to fetch counts
   const fetchCounts = async () => {
-    const [likesResult, commentsResult] = await Promise.all([
-      supabase.from("post_likes").select("*", { count: "exact" }).eq("post_id", post.id),
-      supabase.from("post_comments").select("*", { count: "exact" }).eq("post_id", post.id),
-    ])
+    try {
+      const [likesResult, commentsResult] = await Promise.all([
+        supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", post.id),
+        supabase.from("post_comments").select("*", { count: "exact", head: true }).eq("post_id", post.id),
+      ])
 
-    setLikeCount(likesResult.count ?? 0)
-    setCommentCount(commentsResult.count ?? 0)
+      // Check for errors
+      if (likesResult.error) {
+        console.error("Error fetching like count:", likesResult.error)
+      }
+      if (commentsResult.error) {
+        console.error("Error fetching comment count:", commentsResult.error)
+      }
+
+      setLikeCount(likesResult.count ?? 0)
+      setCommentCount(commentsResult.count ?? 0)
+    } catch (error) {
+      console.error("Error in fetchCounts:", error)
+    }
   }
 
   useEffect(() => {
     async function fetchData() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
 
-      if (user) {
-        await fetchUserInteractions(user.id)
+        if (userError) {
+          console.error("Error fetching user:", userError)
+          return
+        }
+
+        setUser(user)
+
+        if (user) {
+          await fetchUserInteractions(user.id)
+        }
+
+        await fetchCounts()
+      } catch (error) {
+        console.error("Error in fetchData:", error)
       }
-
-      await fetchCounts()
     }
 
     fetchData()
 
     // Set up real-time subscriptions for likes and comments
     const likesSubscription = supabase
-      .channel("post-likes-changes")
+      .channel(`post-likes-${post.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "post_likes", filter: `post_id=eq.${post.id}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "post_likes",
+          filter: `post_id=eq.${post.id}`,
+        },
         (payload) => {
           // Refresh counts and user interaction status when likes change
           fetchCounts()
@@ -92,10 +133,15 @@ export function Post({ post }: PostProps) {
       .subscribe()
 
     const commentsSubscription = supabase
-      .channel("post-comments-changes")
+      .channel(`post-comments-${post.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "post_comments", filter: `post_id=eq.${post.id}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "post_comments",
+          filter: `post_id=eq.${post.id}`,
+        },
         () => {
           fetchCounts()
         },
@@ -107,7 +153,7 @@ export function Post({ post }: PostProps) {
       supabase.removeChannel(likesSubscription)
       supabase.removeChannel(commentsSubscription)
     }
-  }, [supabase, post.id])
+  }, [supabase, post.id, user?.id])
 
   const username = post.user.username || "Anonymous"
 
@@ -178,9 +224,6 @@ export function Post({ post }: PostProps) {
                 {user?.id !== post.user_id && <FollowButton userId={post.user_id} initialIsFollowing={isFollowing} />}
               </div>
             </div>
-
-            {/* Username for mobile only */}
-            {/* <div className="xs:hidden text-gray-500 text-xs mb-1">@{username.toLowerCase().replace(/\s/g, "")}</div> */}
 
             {/* Post content */}
             <div className="mt-1 text-gray-900 text-sm sm:text-base">
