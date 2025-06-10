@@ -28,6 +28,7 @@ import {
   Settings,
   UserPlus,
   Unlock,
+  Trash2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -147,6 +148,10 @@ export default function MemorialPage() {
   })
 
   const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null)
+
+  // Delete functionality state
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const supabase = createClientComponentClient()
 
@@ -590,6 +595,52 @@ export default function MemorialPage() {
     }
   }
 
+  // Handle memorial deletion - only for creators
+  const handleDeleteMemorial = async () => {
+    if (!memorial || !isCurrentUserCreator) {
+      setError("You don't have permission to delete this memorial.")
+      return
+    }
+
+    setIsDeleting(true)
+    setError(null)
+
+    try {
+      // Delete in order: memories, flowers, then memorial
+      // First delete virtual flowers
+      const { error: flowersError } = await supabase.from("virtual_flowers").delete().eq("memorial_id", memorial.id)
+
+      if (flowersError) {
+        console.error("Error deleting flowers:", flowersError)
+        // Continue anyway - don't fail the whole deletion
+      }
+
+      // Delete the memorial page (this should cascade to related data)
+      const { error: memorialError } = await supabase
+        .from("memorialpages212515")
+        .delete()
+        .eq("id", memorial.id)
+        .eq("created_by", user?.id) // Extra security check
+
+      if (memorialError) {
+        throw memorialError
+      }
+
+      // Redirect to home or dashboard after successful deletion
+      router.push("/")
+    } catch (err) {
+      console.error("Error deleting memorial:", err)
+      setError(
+        err instanceof Error
+          ? `Failed to delete memorial: ${err.message}`
+          : "Failed to delete memorial. Please try again.",
+      )
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteConfirm(false)
+    }
+  }
+
   // Get dynamic header classes based on current style and theme
   const getHeaderClasses = () => {
     if (currentHeaderStyle.name === "gradient") {
@@ -618,7 +669,7 @@ export default function MemorialPage() {
           <div
             className={`animate-spin rounded-full h-12 w-12 border-b-2 ${currentTheme.textColor.replace("text", "border")} mx-auto mb-4`}
           ></div>
-          <p className="text-gray-600">Loading memorial...</p>
+          <p className="text-black">Loading memorial...</p>
         </div>
       </div>
     )
@@ -747,9 +798,9 @@ export default function MemorialPage() {
                 <CardContent className="pt-24 pb-8">
                   {/* Memorial Name and Dates - Enhanced */}
                   <div className="text-center mb-8">
-                    <h1 className="text-4xl font-serif text-gray-800 mb-3">{memorial?.name}</h1>
+                    <h1 className="text-4xl font-serif text-black mb-3">{memorial?.name}</h1>
 
-                    <div className="flex flex-wrap items-center justify-center gap-4 text-gray-600">
+                    <div className="flex flex-wrap items-center justify-center gap-4 text-black">
                       {memorial?.date_of_birth && memorial?.date_of_passing && (
                         <Badge variant="secondary" className="text-sm px-3 py-1">
                           <Calendar className="h-3 w-3 mr-1" />
@@ -773,7 +824,7 @@ export default function MemorialPage() {
 
                   {/* FIXED Creator info - Proper avatar sizing and positioning */}
                   <div className="flex items-center justify-center gap-3 mb-8 p-4 bg-gray-50 rounded-lg">
-                    <span className="text-sm text-gray-600">Memorial created by</span>
+                    <span className="text-sm text-black">Memorial created by</span>
                     <div className="flex items-center gap-2">
                       {isCurrentUserCreator && memorial?.creator ? (
                         <AvatarUploadDialog
@@ -815,7 +866,7 @@ export default function MemorialPage() {
                           />
                         </div>
                       )}
-                      <span className="font-medium text-gray-800">{memorial?.creator?.username || "Anonymous"}</span>
+                      <span className="font-medium text-black">{memorial?.creator?.username || "Anonymous"}</span>
                     </div>
                   </div>
 
@@ -824,7 +875,7 @@ export default function MemorialPage() {
                   {/* Biography Section - Enhanced */}
                   <div className="mb-8">
                     <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-2xl font-serif text-gray-700 flex items-center gap-2">
+                      <h2 className="text-2xl font-serif text-black flex items-center gap-2">
                         <Heart className={`h-5 w-5 ${currentTheme.textColor}`} />
                         Life Story
                       </h2>
@@ -868,7 +919,7 @@ export default function MemorialPage() {
                       </div>
                     ) : (
                       <div className="prose prose-gray max-w-none">
-                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50 p-4 rounded-lg">
+                        <p className="text-black leading-relaxed whitespace-pre-wrap bg-gray-50 p-4 rounded-lg">
                           {memorial?.bio || "No biography has been written yet."}
                         </p>
                       </div>
@@ -880,7 +931,7 @@ export default function MemorialPage() {
                   {/* Virtual Flowers Section - Enhanced */}
                   <div className="mb-8">
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-2xl font-serif text-gray-700 flex items-center gap-2">
+                      <h2 className="text-2xl font-serif text-black flex items-center gap-2">
                         <Flower className={`h-5 w-5 ${currentTheme.textColor}`} />
                         Virtual Flowers
                         <Badge variant="secondary" className="ml-2">
@@ -920,8 +971,8 @@ export default function MemorialPage() {
                                 size={48}
                               />
                             </div>
-                            <div className="text-sm font-medium text-gray-800 truncate">{flower.sender_name}</div>
-                            <div className="text-xs text-gray-500 mt-1">
+                            <div className="text-sm font-medium text-black truncate">{flower.sender_name}</div>
+                            <div className="text-xs text-black mt-1">
                               {new Date(flower.created_at).toLocaleDateString(undefined, {
                                 month: "short",
                                 day: "numeric",
@@ -930,7 +981,7 @@ export default function MemorialPage() {
                           </Card>
                         ))
                       ) : (
-                        <div className="col-span-full text-center py-12 text-gray-500">
+                        <div className="col-span-full text-center py-12 text-black">
                           <Flower className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                           <p className="text-lg mb-2">No flowers yet</p>
                           <p className="text-sm">Be the first to send a virtual flower</p>
@@ -945,7 +996,7 @@ export default function MemorialPage() {
                   {memorial && (
                     <div className="mb-8">
                       <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-2xl font-serif text-gray-700 flex items-center gap-2">
+                        <h2 className="text-2xl font-serif text-black flex items-center gap-2">
                           <MessageCircle className={`h-5 w-5 ${currentTheme.textColor}`} />
                           Share a Memory
                         </h2>
@@ -996,7 +1047,7 @@ export default function MemorialPage() {
                   {/* Memories Feed - Enhanced */}
                   <div>
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-2xl font-serif text-gray-700 flex items-center gap-2">
+                      <h2 className="text-2xl font-serif text-black flex items-center gap-2">
                         <Users className={`h-5 w-5 ${currentTheme.textColor}`} />
                         Memories
                         <Badge variant="secondary" className="ml-2">
@@ -1023,8 +1074,8 @@ export default function MemorialPage() {
                     ) : (
                       <Card className="p-12 text-center bg-gray-50 border-dashed border-2 border-gray-200">
                         <MessageCircle className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                        <h3 className="text-lg font-medium text-gray-600 mb-2">No memories shared yet</h3>
-                        <p className="text-gray-500 mb-4 leading-relaxed">
+                        <h3 className="text-lg font-medium text-black mb-2">No memories shared yet</h3>
+                        <p className="text-black mb-4 leading-relaxed">
                           {user
                             ? "Be the first to share a cherished memory"
                             : "Sign in to be the first to share a memory"}
@@ -1067,21 +1118,21 @@ export default function MemorialPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Memories</span>
+                    <span className="text-sm text-black">Memories</span>
                     <Badge variant="secondary">{memories.length}</Badge>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Virtual Flowers</span>
+                    <span className="text-sm text-black">Virtual Flowers</span>
                     <Badge variant="secondary">{virtualFlowers.length}</Badge>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Created</span>
-                    <span className="text-sm text-gray-800">
+                    <span className="text-sm text-black">Date Of Passing</span>
+                    <span className="text-sm text-black">
                       {memorial && new Date(memorial.date_of_passing).toLocaleDateString()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Sharing</span>
+                    <span className="text-sm text-black">Sharing</span>
                     <Badge variant="outline" className="text-green-600 border-green-200">
                       <Unlock className="h-3 w-3 mr-1" />
                       Open
@@ -1096,7 +1147,7 @@ export default function MemorialPage() {
                   <CardTitle className="text-lg">About This Memorial</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                  <p className="text-sm text-black mb-4 leading-relaxed">
                     This memorial page was created to honor and remember {memorial?.name}.
                     {user
                       ? " Share your memories, photos, and pay tribute by sending virtual flowers."
@@ -1159,6 +1210,60 @@ export default function MemorialPage() {
                       <Camera className="h-4 w-4 mr-2" />
                       Update Photos
                     </Button>
+
+                    {/* Add delete button */}
+                    <Separator className="my-2" />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      disabled={isDeleting}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {isDeleting ? "Deleting..." : "Delete Memorial"}
+                    </Button>
+
+                    {/* Delete confirmation dialog */}
+                    {showDeleteConfirm && (
+                      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <Card className="w-full max-w-md bg-white">
+                          <CardHeader>
+                            <CardTitle className="text-red-600 flex items-center gap-2">
+                              <Trash2 className="h-5 w-5" />
+                              Delete Memorial
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              <Alert className="border-red-200 bg-red-50">
+                                <AlertDescription className="text-red-800">
+                                  <strong>Warning:</strong> This action cannot be undone. All memories, photos, and
+                                  virtual flowers will be permanently deleted.
+                                </AlertDescription>
+                              </Alert>
+
+                              <p className="text-black">
+                                Are you sure you want to delete the memorial for <strong>{memorial?.name}</strong>?
+                              </p>
+
+                              <div className="flex gap-3 justify-end">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setShowDeleteConfirm(false)}
+                                  disabled={isDeleting}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button variant="destructive" onClick={handleDeleteMemorial} disabled={isDeleting}>
+                                  {isDeleting ? "Deleting..." : "Delete Forever"}
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -1169,7 +1274,7 @@ export default function MemorialPage() {
                   <CardTitle className="text-lg">Community Guidelines</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-sm text-gray-600 space-y-2">
+                  <div className="text-sm text-black space-y-2">
                     <p>• Share respectful memories and tributes</p>
                     <p>• Keep content appropriate and family-friendly</p>
                     <p>• Upload meaningful photos and stories</p>
