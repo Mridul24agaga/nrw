@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { MessageCircle, ThumbsUp, Trash2, X, Send } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { likeMemory, addMemoryComment, deleteMemory } from "@/actions/memory-actions"
+import { likeMemory, addMemoryComment, deleteMemory } from "@/actions/memorial" // Corrected import path
 import { CustomAvatar } from "./custom-avatar"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -20,20 +20,21 @@ interface ThemeColor {
 }
 
 interface MemoryContent {
+  id: string // Crucial: Each memory must have a unique ID for deletion
   content: string
   imageUrl: string | null
   createdAt: string
-  author?: {
+  author: {
     id: string
     username: string
     avatar_url: string | null
-  }
+  } | null // Changed to | null for consistency
 }
 
 interface MemoryCardProps {
-  memoryId: string // Index in the array
+  memoryId: string // This MUST be the unique ID of the memory, not just an array index
   memorialId: string
-  memory: string | MemoryContent // Support both string and object format
+  memory: MemoryContent // Changed to MemoryContent, as page.tsx now guarantees parsed object
   pageName: string
   currentUser?: {
     id: string
@@ -42,12 +43,13 @@ interface MemoryCardProps {
   } | null
   isCreator: boolean
   themeColor?: ThemeColor
+  onMemoryDeleted: () => void // Callback to refresh memories in parent
 }
 
 export function MemoryCard({
-  memoryId,
+  memoryId, // This prop is now assumed to be the unique ID of the memory
   memorialId,
-  memory,
+  memory, // Now directly of type MemoryContent
   pageName,
   currentUser,
   isCreator,
@@ -59,17 +61,18 @@ export function MemoryCard({
     superLightColor: "bg-purple-50",
     textColor: "text-purple-600",
   },
+  onMemoryDeleted, // Destructure the callback
 }: MemoryCardProps) {
   const router = useRouter()
   const supabase = createClientComponentClient()
 
-  // Parse memory content
-  const [content, setContent] = useState("")
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [createdAt, setCreatedAt] = useState(new Date().toISOString())
-  const [author, setAuthor] = useState<{ id: string; username: string; avatar_url: string | null } | undefined>(
-    undefined,
-  )
+  // Directly use the 'memory' prop as it's now guaranteed to be parsed
+  const [content, setContent] = useState(memory.content)
+  const [imageUrl, setImageUrl] = useState<string | null>(memory.imageUrl)
+  const [createdAt, setCreatedAt] = useState(memory.createdAt)
+  const [author, setAuthor] = useState<{ id: string; username: string; avatar_url: string | null } | null>(
+    memory.author,
+  ) // Changed to | null
 
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
@@ -82,122 +85,13 @@ export function MemoryCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Parse memory content on mount
+  // No need for complex parsing useEffect here anymore, as 'memory' prop is pre-parsed
   useEffect(() => {
-    // Function to recursively parse potentially nested JSON
-    const parseNestedJson = (data: any): MemoryContent & { author?: any } => {
-      // If it's a string, try to parse it as JSON
-      if (typeof data === "string") {
-        try {
-          // Check if it looks like JSON
-          if (data.trim().startsWith("{") || data.includes('\\"')) {
-            const parsed = JSON.parse(data)
-            // Recursively parse the result if it's still a string that looks like JSON
-            if (typeof parsed === "string" && (parsed.trim().startsWith("{") || parsed.includes('\\"'))) {
-              return parseNestedJson(parsed)
-            }
-            // If it's an object with the expected structure, use it
-            if (typeof parsed === "object" && parsed !== null) {
-              if (parsed.content !== undefined) {
-                return {
-                  content: parsed.content || "",
-                  imageUrl: parsed.imageUrl || null,
-                  createdAt: parsed.createdAt || new Date().toISOString(),
-                  author: parsed.author || undefined,
-                }
-              } else if (parsed.imageUrl !== undefined) {
-                // Handle case where the object has imageUrl but not content
-                return {
-                  content: "",
-                  imageUrl: parsed.imageUrl,
-                  createdAt: parsed.createdAt || new Date().toISOString(),
-                  author: parsed.author || undefined,
-                }
-              }
-            }
-            // If we got here, the parsed result doesn't match our expected structure
-            return {
-              content: typeof parsed === "string" ? parsed : JSON.stringify(parsed),
-              imageUrl: null,
-              createdAt: new Date().toISOString(),
-              author: undefined,
-            }
-          }
-        } catch (e) {
-          // If parsing fails, treat it as plain text
-          console.log("Failed to parse memory JSON:", e)
-        }
-        // Default for strings that aren't JSON
-        return {
-          content: data,
-          imageUrl: null,
-          createdAt: new Date().toISOString(),
-          author: undefined,
-        }
-      }
-
-      // If it's already an object with content property
-      if (typeof data === "object" && data !== null) {
-        // Check if content might be nested JSON
-        if (typeof data.content === "string" && (data.content.trim().startsWith("{") || data.content.includes('\\"'))) {
-          try {
-            const parsedContent = JSON.parse(data.content)
-            // If parsedContent is an object with the right structure, use it
-            if (
-              typeof parsedContent === "object" &&
-              parsedContent !== null &&
-              (parsedContent.content !== undefined || parsedContent.imageUrl !== undefined)
-            ) {
-              return {
-                content: parsedContent.content || "",
-                imageUrl: parsedContent.imageUrl || data.imageUrl || null,
-                createdAt: parsedContent.createdAt || data.createdAt || new Date().toISOString(),
-                author: parsedContent.author || data.author || undefined,
-              }
-            }
-          } catch (e) {
-            // If parsing fails, use the original content
-            console.log("Failed to parse nested content:", e)
-          }
-        }
-
-        // Use the object as is
-        return {
-          content: data.content || "",
-          imageUrl: data.imageUrl || null,
-          createdAt: data.createdAt || new Date().toISOString(),
-          author: data.author || undefined,
-        }
-      }
-
-      // Default fallback
-      return {
-        content: String(data),
-        imageUrl: null,
-        createdAt: new Date().toISOString(),
-        author: undefined,
-      }
-    }
-
-    // Parse the memory data
-    const parsedMemory = parseNestedJson(memory)
-
-    setContent(parsedMemory.content)
-    setImageUrl(parsedMemory.imageUrl)
-    setCreatedAt(parsedMemory.createdAt)
-
-    // Make sure we properly extract the author information
-    if (parsedMemory.author) {
-      setAuthor({
-        id: parsedMemory.author.id || "unknown",
-        username: parsedMemory.author.username || "Anonymous",
-        avatar_url: parsedMemory.author.avatar_url || null,
-      })
-    } else {
-      // If no author info, set to undefined
-      setAuthor(undefined)
-    }
-  }, [memory])
+    setContent(memory.content)
+    setImageUrl(memory.imageUrl)
+    setCreatedAt(memory.createdAt)
+    setAuthor(memory.author)
+  }, [memory]) // Re-run if the memory object itself changes
 
   const formattedDate = new Date(createdAt).toLocaleDateString("en-US", {
     month: "short",
@@ -214,7 +108,7 @@ export function MemoryCard({
         const { data } = await supabase
           .from("memory_likes")
           .select()
-          .eq("memory_id", memoryId)
+          .eq("memory_id", memoryId) // Use memoryId from props
           .eq("user_id", currentUser.id)
           .single()
 
@@ -231,7 +125,7 @@ export function MemoryCard({
         const { count: likeCountData } = await supabase
           .from("memory_likes")
           .select("*", { count: "exact" })
-          .eq("memory_id", memoryId)
+          .eq("memory_id", memoryId) // Use memoryId from props
 
         setLikeCount(likeCountData || 0)
 
@@ -239,7 +133,7 @@ export function MemoryCard({
         const { count: commentCountData } = await supabase
           .from("memory_comments")
           .select("*", { count: "exact" })
-          .eq("memory_id", memoryId)
+          .eq("memory_id", memoryId) // Use memoryId from props
 
         setCommentCount(commentCountData || 0)
       } catch (error) {
@@ -249,7 +143,7 @@ export function MemoryCard({
 
     fetchLikeStatus()
     fetchCounts()
-  }, [memoryId, currentUser, supabase])
+  }, [memoryId, currentUser, supabase]) // Depend on memoryId
 
   const handleLike = async () => {
     if (!currentUser) {
@@ -264,7 +158,7 @@ export function MemoryCard({
     setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1))
 
     try {
-      const result = await likeMemory(memoryId)
+      const result = await likeMemory(memoryId) // Use memoryId from props
 
       if (result.error) {
         // Revert optimistic update on error
@@ -293,12 +187,12 @@ export function MemoryCard({
         const { data, error } = await supabase
           .from("memory_comments")
           .select(`
-            id,
-            content,
-            created_at,
-            user:user_id (id, username, avatar_url)
-          `)
-          .eq("memory_id", memoryId)
+          id,
+          content,
+          created_at,
+          user:user_id (id, username, avatar_url)
+        `)
+          .eq("memory_id", memoryId) // Use memoryId from props
           .order("created_at", { ascending: true })
 
         if (error) throw error
@@ -331,7 +225,7 @@ export function MemoryCard({
     setError(null)
 
     try {
-      const result = await addMemoryComment(memoryId, newComment)
+      const result = await addMemoryComment(memoryId, newComment) // Use memoryId from props
 
       if (result.error) {
         console.error(result.error)
@@ -363,13 +257,26 @@ export function MemoryCard({
   }
 
   const handleDelete = async () => {
-    if (!isCreator && !(currentUser && author && currentUser.id === author.id)) return
+    // Ensure 'author' state is set before checking authorization
+    if (!author && !isCreator) {
+      setError("Cannot determine authorization to delete this memory.")
+      setTimeout(() => setError(null), 3000)
+      return
+    }
+
+    // Authorization check: current user is the author OR current user is the memorial creator
+    if (!isCreator && !(currentUser && author && currentUser.id === author.id)) {
+      setError("You are not authorized to delete this memory.")
+      setTimeout(() => setError(null), 3000)
+      return
+    }
 
     setIsDeleting(true)
     setError(null)
 
     try {
-      const result = await deleteMemory(memoryId, memorialId)
+      // Call the deleteMemory Server Action with the unique memoryId
+      const result = await deleteMemory(memorialId, memoryId)
 
       if (result.error) {
         console.error(result.error)
@@ -377,8 +284,8 @@ export function MemoryCard({
         return
       }
 
-      // Refresh the page to show updated memories
-      router.refresh()
+      // Notify the parent component (MemorialPage) to refresh the memories list
+      onMemoryDeleted()
     } catch (error) {
       console.error("Error deleting memory:", error)
       setError("Failed to delete memory. Please try again.")
@@ -388,7 +295,7 @@ export function MemoryCard({
     }
   }
 
-  // Determine if the current user can delete this memory
+  // Determine if the current user can delete this memory for UI rendering
   const canDelete = isCreator || (currentUser && author && currentUser.id === author.id)
 
   return (

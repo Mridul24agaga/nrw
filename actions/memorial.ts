@@ -18,6 +18,7 @@ type MemorialPage = {
     username: string
     avatar_url: string | null
   }
+  memory_message?: any[] // Ensure this is included for updates
 }
 
 async function generateUniqueName(supabase: any, baseName: string): Promise<string> {
@@ -192,14 +193,14 @@ export async function getPost(postId: string) {
   const { data: post, error } = await supabase
     .from("posts")
     .select(`
-      *,
-      user:profiles!user_id (
-        username,
-        avatar_url
-      ),
-      likes (count),
-      comments (count)
-    `)
+    *,
+    user:profiles!user_id (
+      username,
+      avatar_url
+    ),
+    likes (count),
+    comments (count)
+  `)
     .eq("id", postId)
     .single()
 
@@ -294,9 +295,9 @@ export async function getPostsWithComments(memorialId: string) {
   const { data: posts, error: postsError } = await supabase
     .from("posts")
     .select(`
-      *,
-      user:profiles!user_id (username, avatar_url)
-    `)
+    *,
+    user:profiles!user_id (username, avatar_url)
+  `)
     .eq("memorial_id", memorialId)
     .order("created_at", { ascending: false })
 
@@ -312,31 +313,316 @@ export async function getPostsWithComments(memorialId: string) {
       const { data: comments } = await supabase
         .from("comments")
         .select(`
-          id,
-          content,
-          created_at,
-          user_id,
-          user:profiles!user_id (username, avatar_url)
-        `)
+      id,
+      content,
+      created_at,
+      user_id,
+      user:profiles!user_id (username, avatar_url)
+    `)
         .eq("post_id", post.id)
         .order("created_at", { ascending: true })
 
       // Get likes for this specific post
-      const { data: likes } = await supabase
-        .from("likes")
-        .select("id, user_id")
-        .eq("post_id", post.id)
+      const { data: likes } = await supabase.from("likes").select("id, user_id").eq("post_id", post.id)
 
       return {
         ...post,
         comments: comments || [],
         likes: {
           count: likes ? likes.length : 0,
-          data: likes || []
-        }
+          data: likes || [],
+        },
       }
-    })
+    }),
   )
 
   return postsWithData
+}
+
+export async function likeMemory(memoryId: string) {
+  const supabase = createServerComponentClient({ cookies })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "User not authenticated to like memories." }
+  }
+
+  // Check if already liked
+  const { data: existingLike, error: fetchError } = await supabase
+    .from("memory_likes")
+    .select("id")
+    .eq("memory_id", memoryId)
+    .eq("user_id", user.id)
+    .single()
+
+  if (fetchError && fetchError.code !== "PGRST116") {
+    // PGRST116 means no rows found
+    console.error("Error checking existing like:", fetchError)
+    return { error: `Failed to check like status: ${fetchError.message}` }
+  }
+
+  if (existingLike) {
+    // Unlike
+    const { error: deleteError } = await supabase
+      .from("memory_likes")
+      .delete()
+      .eq("memory_id", memoryId)
+      .eq("user_id", user.id)
+
+    if (deleteError) {
+      console.error("Error unliking memory:", deleteError)
+      return { error: `Failed to unlike memory: ${deleteError.message}` }
+    }
+    return { success: true, liked: false }
+  } else {
+    // Like
+    const { error: insertError } = await supabase.from("memory_likes").insert({ memory_id: memoryId, user_id: user.id })
+
+    if (insertError) {
+      console.error("Error liking memory:", insertError)
+      return { error: `Failed to like memory: ${insertError.message}` }
+    }
+    return { success: true, liked: true }
+  }
+}
+
+export async function addMemoryComment(memoryId: string, content: string) {
+  const supabase = createServerComponentClient({ cookies })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "User not authenticated to add comments." }
+  }
+
+  const { data: comment, error } = await supabase
+    .from("memory_comments")
+    .insert({ memory_id: memoryId, user_id: user.id, content })
+    .select()
+    .single()
+
+  if (error) {
+    console.error("Error adding comment:", error)
+    return { error: `Failed to add comment: ${error.message}` }
+  }
+
+  return { success: true, comment }
+}
+
+// New server action to add a memory to the memorial page's memory_message array
+export async function addMemoryToMemorial(
+  memorialId: string,
+  newMemoryContent: string,
+  imageUrl: string | null,
+  author: { id: string; username: string; avatar_url: string | null } | null,
+) {
+  const supabase = createServerComponentClient({ cookies })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "User not authenticated to add memories." }
+  }
+
+  // Fetch the current memorial page to get the memory_message array and page_name
+  const { data: memorialPage, error: fetchError } = await supabase
+    .from("memorialpages212515")
+    .select("memory_message, page_name") // FIX: Added page_name to the select query
+    .eq("id", memorialId)
+    .single()
+
+  if (fetchError) {
+    console.error("Error fetching memorial page for adding memory:", fetchError)
+    return { error: `Failed to fetch memorial page: ${fetchError.message}` }
+  }
+
+  if (!memorialPage) {
+    return { error: "Memorial page not found." }
+  }
+
+  // Ensure memory_message is an array
+  const currentMemories = Array.isArray(memorialPage.memory_message) ? memorialPage.memory_message : []
+
+  // Create the new memory object with a unique ID and author info
+  const newMemory = {
+    id: crypto.randomUUID(), // Generate a unique ID here
+    content: newMemoryContent,
+    imageUrl: imageUrl,
+    createdAt: new Date().toISOString(),
+    author: author, // Include author details
+  }
+
+  const updatedMemories = [...currentMemories, newMemory]
+
+  // Update the memorial page with the new memories array
+  const { error: updateError } = await supabase
+    .from("memorialpages212515")
+    .update({ memory_message: updatedMemories })
+    .eq("id", memorialId)
+
+  if (updateError) {
+    console.error("Error updating memorial page with new memory:", updateError)
+    return { error: `Failed to add memory: ${updateError.message}` }
+  }
+
+  revalidatePath(`/memorial/${memorialPage.page_name}`) // Revalidate the specific memorial page
+
+  return { success: true, newMemory }
+}
+
+export async function deleteMemory(memorialId: string, memoryToDeleteId: string) {
+  const supabase = createServerComponentClient({ cookies })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "User not authenticated." }
+  }
+
+  console.log("deleteMemory: Attempting to delete memory.")
+  console.log(`  memorialId: ${memorialId}`)
+  console.log(`  memoryToDeleteId (from frontend): ${memoryToDeleteId}`)
+  console.log(`  Current user ID: ${user.id}`)
+
+  // Fetch the current memorial page to get the memory_message array and creator ID
+  const { data: memorialPage, error: fetchError } = await supabase
+    .from("memorialpages212515")
+    .select("memory_message, created_by, page_name")
+    .eq("id", memorialId)
+    .single()
+
+  if (fetchError) {
+    console.error("Error fetching memorial page:", fetchError)
+    return { error: `Failed to fetch memorial page: ${fetchError.message}` }
+  }
+
+  if (!memorialPage) {
+    console.log("deleteMemory: Memorial page not found for ID:", memorialId)
+    return { error: "Memorial page not found." }
+  }
+
+  console.log(`  Memorial creator ID: ${memorialPage.created_by}`)
+
+  const currentMemories = Array.isArray(memorialPage.memory_message) ? memorialPage.memory_message : []
+  console.log(`  Total memories in DB: ${currentMemories.length}`)
+
+  // Find the memory to delete
+  // Trim IDs for robust comparison to handle potential whitespace issues
+  const memoryIndex = currentMemories.findIndex((memory: any) => {
+    console.log(
+      `  Comparing stored ID: '${String(memory.id).trim()}' with target ID: '${String(memoryToDeleteId).trim()}'`,
+    )
+    return String(memory.id).trim() === String(memoryToDeleteId).trim()
+  })
+
+  if (memoryIndex === -1) {
+    console.log("deleteMemory: Memory not found with matching ID in the array.")
+    return { error: "Memory not found." } // More specific error
+  }
+
+  const memoryToDelete = currentMemories[memoryIndex]
+  console.log(`  Found memory to delete: ID=${memoryToDelete.id}, Author ID=${memoryToDelete.author?.id}`)
+
+  // Check authorization
+  const isAuthor = memoryToDelete.author?.id === user.id
+  const isMemorialCreator = memorialPage.created_by === user.id
+
+  if (!isAuthor && !isMemorialCreator) {
+    console.log("deleteMemory: User not authorized to delete this memory.")
+    return { error: "You are not authorized to delete this memory." } // More specific error
+  }
+
+  // If authorized, proceed with deletion
+  const updatedMemories = currentMemories.filter((_, index) => index !== memoryIndex)
+
+  // Update the memorial page with the filtered memories
+  const { error: updateError } = await supabase
+    .from("memorialpages212515")
+    .update({ memory_message: updatedMemories })
+    .eq("id", memorialId)
+
+  if (updateError) {
+    console.error("Error updating memorial page with deleted memory:", updateError)
+    return { error: `Failed to delete memory: ${updateError.message}` }
+  }
+
+  console.log("deleteMemory: Memory successfully deleted and memorial page updated.")
+  revalidatePath(`/memorial/${memorialPage.page_name}`)
+
+  return { success: true }
+}
+
+// NEW SERVER ACTION: deletePost
+export async function deletePost(postId: string, memorialId: string) {
+  const supabase = createServerComponentClient({ cookies })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "User not authenticated." }
+  }
+
+  console.log("deletePost: Attempting to delete post.")
+  console.log(`  postId: ${postId}`)
+  console.log(`  memorialId: ${memorialId}`)
+  console.log(`  Current user ID: ${user.id}`)
+
+  try {
+    // 1. Fetch the post to verify existence and get its author
+    const { data: post, error: postFetchError } = await supabase
+      .from("posts")
+      .select("id, user_id, memorial_id")
+      .eq("id", postId)
+      .eq("memorial_id", memorialId) // Ensure post belongs to this memorial
+      .single()
+
+    if (postFetchError || !post) {
+      console.error("Post not found or access denied:", postFetchError?.message || "Post does not exist.")
+      return { error: "Post not found or you don't have permission to delete it." }
+    }
+
+    // 2. Fetch the memorial to get its creator for authorization
+    const { data: memorial, error: memorialFetchError } = await supabase
+      .from("memorialpages212515")
+      .select("created_by, page_name")
+      .eq("id", memorialId)
+      .single()
+
+    if (memorialFetchError || !memorial) {
+      console.error("Memorial not found:", memorialFetchError?.message)
+      return { error: "Memorial not found." }
+    }
+
+    // 3. Authorization Check: Is current user the post author OR the memorial creator?
+    const isPostAuthor = user.id === post.user_id
+    const isMemorialCreator = user.id === memorial.created_by
+
+    if (!isPostAuthor && !isMemorialCreator) {
+      console.log("deletePost: User not authorized to delete this post.")
+      return { error: "You are not authorized to delete this post." }
+    }
+
+    // 4. Proceed with deletion
+    const { error: deleteError } = await supabase.from("posts").delete().eq("id", postId).eq("memorial_id", memorialId) // Double-check memorial_id for safety
+
+    if (deleteError) {
+      console.error("Error deleting post:", deleteError.message)
+      return { error: "Failed to delete post: " + deleteError.message }
+    }
+
+    console.log("deletePost: Post successfully deleted.")
+    // Revalidate the path where posts are displayed
+    revalidatePath(`/memorial/${memorial.page_name}`)
+
+    return { success: true }
+  } catch (e: any) {
+    console.error("Unexpected error in deletePost:", e.message)
+    return { error: "An unexpected error occurred: " + e.message }
+  }
 }
