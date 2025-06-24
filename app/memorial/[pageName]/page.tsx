@@ -50,7 +50,7 @@ interface Memorial {
     avatar_url: string | null
   }
   memorial_avatar_url?: string | null
-  memory_message?: any[] // Keep as any[] for raw data from DB before parsing
+  memory_message?: any[]
   theme?: string
   header_style?: string
   header_image_url?: string
@@ -98,19 +98,6 @@ interface HeaderStyle {
   description: string
 }
 
-// Define Memory interface with a unique ID for consistent use
-interface Memory {
-  id: string // Crucial for identifying memories for deletion
-  content: string
-  imageUrl: string | null
-  createdAt: string
-  author: {
-    id: string
-    username: string
-    avatar_url: string | null
-  } | null // Use null for consistency
-}
-
 // Type guard for Memorial
 function isMemorial(data: any): data is Memorial {
   return (
@@ -130,7 +117,7 @@ export default function MemorialPage() {
 
   const [memorial, setMemorial] = useState<Memorial | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
-  const [memories, setMemories] = useState<Memory[]>([]) // Use the new Memory interface
+  const [memories, setMemories] = useState<any[]>([])
   const [user, setUser] = useState<ExtendedUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -258,76 +245,92 @@ export default function MemorialPage() {
           console.error("Error fetching memories:", memoriesError)
         }
 
-        // --- START: Robust Memory Parsing Logic (moved here) ---
-        const parseMemoryContent = (data: any): Memory => {
-          let parsed: any = {
-            content: String(data), // Default content
-            imageUrl: null,
-            createdAt: new Date().toISOString(),
-            author: null,
-          }
-
-          // If data is an object, try to merge its properties
-          if (typeof data === "object" && data !== null) {
-            parsed = { ...parsed, ...data }
-            // Check for double-encoded JSON in content field
-            if (
-              typeof parsed.content === "string" &&
-              (parsed.content.trim().startsWith("{") || parsed.content.includes('\\"'))
-            ) {
-              try {
-                const nestedParsedContent = JSON.parse(parsed.content)
-                if (typeof nestedParsedContent === "object" && nestedParsedContent !== null) {
-                  parsed = { ...parsed, ...nestedParsedContent }
-                }
-              } catch (e) {
-                // Nested content not JSON, keep as string
-              }
-            }
-          } else if (typeof data === "string") {
-            try {
-              const jsonParsed = JSON.parse(data)
-              // If it's a string that looks like JSON, try parsing again
-              if (typeof jsonParsed === "string" && (jsonParsed.trim().startsWith("{") || jsonParsed.includes('\\"'))) {
-                return parseMemoryContent(jsonParsed) // Recursive call
-              }
-              if (typeof jsonParsed === "object" && jsonParsed !== null) {
-                parsed = { ...parsed, ...jsonParsed }
-              }
-            } catch (e) {
-              // Not JSON, treat as plain string content
-            }
-          }
-
-          // Crucial: Ensure ID is always a string and present.
-          // Prioritize existing valid ID, otherwise generate a new one.
-          let finalId = parsed.id
-          if (typeof finalId !== "string" || !finalId) {
-            finalId = crypto.randomUUID()
-          }
-
-          // Ensure author is null if not properly structured
-          if (parsed.author && (typeof parsed.author !== "object" || parsed.author === null || !parsed.author.id)) {
-            parsed.author = null
-          }
-
-          return {
-            id: finalId,
-            content: parsed.content || "",
-            imageUrl: parsed.imageUrl || null,
-            createdAt: parsed.createdAt || new Date().toISOString(),
-            author: parsed.author || null,
-          }
-        }
-
-        let parsedMemories: Memory[] = []
+        // Parse memories to handle various formats
+        let parsedMemories = []
         if (memoriesData?.memory_message) {
-          if (Array.isArray(memoriesData.memory_message)) {
-            parsedMemories = memoriesData.memory_message.map(parseMemoryContent)
+          try {
+            if (Array.isArray(memoriesData.memory_message)) {
+              parsedMemories = memoriesData.memory_message.map((memory: any) => {
+                // Handle string memories (legacy format)
+                if (typeof memory === "string") {
+                  try {
+                    // Try to parse as JSON first
+                    const parsed = JSON.parse(memory)
+                    return parsed
+                  } catch {
+                    // If not JSON, treat as plain text
+                    return {
+                      content: memory,
+                      imageUrl: null,
+                      createdAt: new Date().toISOString(),
+                      author: null,
+                    }
+                  }
+                }
+
+                // Handle object memories
+                if (typeof memory === "object" && memory !== null) {
+                  // Check for double-encoded JSON in content field
+                  if (memory.content && typeof memory.content === "string") {
+                    try {
+                      // If content looks like JSON, try to parse it
+                      if (memory.content.startsWith("{") || memory.content.includes('\\"')) {
+                        let parsedContent = memory.content
+
+                        // Keep parsing until we get clean content
+                        while (
+                          typeof parsedContent === "string" &&
+                          (parsedContent.startsWith("{") || parsedContent.includes('\\"'))
+                        ) {
+                          try {
+                            parsedContent = JSON.parse(parsedContent)
+                          } catch {
+                            break
+                          }
+                        }
+
+                        // If we got a proper object, use it
+                        if (typeof parsedContent === "object" && parsedContent.content) {
+                          return {
+                            content: parsedContent.content,
+                            imageUrl: parsedContent.imageUrl || null,
+                            createdAt: parsedContent.createdAt || memory.createdAt || new Date().toISOString(),
+                            author: parsedContent.author || memory.author || null,
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      console.error("Error parsing memory content:", e)
+                    }
+                  }
+
+                  // Return the memory as-is if it's already properly formatted
+                  return {
+                    content: memory.content || "",
+                    imageUrl: memory.imageUrl || null,
+                    createdAt: memory.createdAt || new Date().toISOString(),
+                    author: memory.author || null,
+                  }
+                }
+
+                // Fallback for unexpected formats
+                return {
+                  content: String(memory),
+                  imageUrl: null,
+                  createdAt: new Date().toISOString(),
+                  author: null,
+                }
+              })
+            } else {
+              parsedMemories = []
+            }
+          } catch (e) {
+            console.error("Error parsing memories:", e)
+            parsedMemories = []
           }
         }
+
         setMemories(parsedMemories)
-        // --- END: Robust Memory Parsing Logic ---
 
         if (currentUserId && session?.user) {
           // Fetch the user's profile data
@@ -506,11 +509,6 @@ export default function MemorialPage() {
   const handleNewMemory = (newContent: string, imageUrl?: string) => {
     // Refresh the page to show the new memory with all functionality
     router.refresh()
-  }
-
-  // Callback function for when a memory is deleted from MemoryCard
-  const handleMemoryDeleted = () => {
-    router.refresh() // Re-fetch all data to update the memories list
   }
 
   // Handle editing bio
@@ -1041,7 +1039,6 @@ export default function MemorialPage() {
                           memorialId={memorial.id}
                           onMemoryAdded={handleNewMemory}
                           themeColor={currentTheme}
-                          currentUser={currentUserForMemoryCard} // Pass current user
                         />
                       )}
                     </div>
@@ -1061,17 +1058,16 @@ export default function MemorialPage() {
 
                     {memories.length > 0 ? (
                       <div className="space-y-6">
-                        {memories.map((memory) => (
+                        {memories.map((memory, index) => (
                           <MemoryCard
-                            key={memory.id} // Use memory.id for key
-                            memoryId={memory.id} // Pass memory.id
+                            key={index}
+                            memoryId={index.toString()}
                             memorialId={memorial?.id || ""}
-                            memory={memory} // Pass the parsed Memory object
+                            memory={memory}
                             pageName={memorial?.name || pageName}
                             currentUser={currentUserForMemoryCard}
                             isCreator={isCurrentUserCreator}
                             themeColor={currentTheme}
-                            onMemoryDeleted={handleMemoryDeleted} // Pass the callback
                           />
                         ))}
                       </div>

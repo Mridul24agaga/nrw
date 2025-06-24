@@ -4,6 +4,60 @@ import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
+export async function addMemory(memorialId: string, content: string, imageUrl?: string) {
+  const supabase = createServerActionClient({ cookies })
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session) {
+    return { error: "You must be logged in to add a memory" }
+  }
+
+  try {
+    // Get the current memorial
+    const { data: memorial, error: memorialError } = await supabase
+      .from("memorialpages212515")
+      .select("memory_message")
+      .eq("id", memorialId)
+      .single()
+
+    if (memorialError) throw memorialError
+
+    // Create the new memory object
+    const newMemory = {
+      content,
+      imageUrl: imageUrl || null,
+      createdAt: new Date().toISOString(),
+      author: {
+        id: session.user.id,
+        username: session.user.user_metadata?.username || "Anonymous",
+        avatar_url: session.user.user_metadata?.avatar_url || null,
+      },
+    }
+
+    // Append the new memory to the existing array
+    const updatedMemories = [...(memorial.memory_message || []), newMemory]
+
+    // Update the memorial with the new memories array
+    const { error: updateError } = await supabase
+      .from("memorialpages212515")
+      .update({ memory_message: updatedMemories })
+      .eq("id", memorialId)
+
+    if (updateError) throw updateError
+
+    // Revalidate the memorial page
+    revalidatePath(`/memorial/${memorialId}`)
+
+    return { success: true, memory: newMemory }
+  } catch (error) {
+    console.error("Error adding memory:", error)
+    return { error: "Failed to add memory" }
+  }
+}
+
 export async function likeMemory(memoryId: string) {
   const supabase = createServerActionClient({ cookies })
 
@@ -95,7 +149,7 @@ export async function deleteMemory(memoryId: string, memorialId: string) {
   }
 
   try {
-    // First, get the memorial to check if user is creator
+    // Get the memorial to check ownership and memory data
     const { data: memorial, error: memorialError } = await supabase
       .from("memorialpages212515")
       .select("created_by, memory_message")
@@ -104,14 +158,33 @@ export async function deleteMemory(memoryId: string, memorialId: string) {
 
     if (memorialError) throw memorialError
 
-    // Check if user is the creator of the memorial
-    if (memorial.created_by !== session.user.id) {
-      return { error: "Only the memorial creator can delete memories" }
+    // Find the memory in the array
+    const memoryMessages = memorial.memory_message || []
+    const memoryIndex = parseInt(memoryId, 10) // Convert memoryId to index
+    const memory = memoryMessages[memoryIndex]
+
+    if (!memory) {
+      return { error: "Memory not found" }
     }
 
-    // Find the memory in the array and remove it
-    const memoryMessages = memorial.memory_message || []
-    const updatedMemories = memoryMessages.filter((_: unknown, index: number) => index.toString() !== memoryId)
+    // Parse the memory to get author information
+    let parsedMemory
+    try {
+      parsedMemory = typeof memory === "string" ? JSON.parse(memory) : memory
+    } catch (e) {
+      return { error: "Invalid memory format" }
+    }
+
+    // Check if the user is either the memorial creator or the memory author
+    const isCreator = memorial.created_by === session.user.id
+    const isAuthor = parsedMemory.author?.id === session.user.id
+
+    if (!isCreator && !isAuthor) {
+      return { error: "You are not authorized to delete this memory" }
+    }
+
+    // Remove the memory from the array
+    const updatedMemories = memoryMessages.filter((_: unknown, index: number) => index !== memoryIndex)
 
     // Update the memorial with the new memories array
     const { error: updateError } = await supabase
@@ -200,4 +273,3 @@ export async function isMemoryLiked(memoryId: string) {
     return { isLiked: false }
   }
 }
-

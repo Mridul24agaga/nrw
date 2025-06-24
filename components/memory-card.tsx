@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { MessageCircle, ThumbsUp, Trash2, X, Send } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { likeMemory, addMemoryComment, deleteMemory } from "@/actions/memorial" // Corrected import path
+import { likeMemory, addMemoryComment, deleteMemory } from "@/actions/memory-actions"
 import { CustomAvatar } from "./custom-avatar"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -20,21 +20,20 @@ interface ThemeColor {
 }
 
 interface MemoryContent {
-  id: string // Crucial: Each memory must have a unique ID for deletion
   content: string
   imageUrl: string | null
   createdAt: string
-  author: {
+  author?: {
     id: string
     username: string
     avatar_url: string | null
-  } | null // Changed to | null for consistency
+  }
 }
 
 interface MemoryCardProps {
-  memoryId: string // This MUST be the unique ID of the memory, not just an array index
+  memoryId: string // Index in the array
   memorialId: string
-  memory: MemoryContent // Changed to MemoryContent, as page.tsx now guarantees parsed object
+  memory: string | MemoryContent // Support both string and object format
   pageName: string
   currentUser?: {
     id: string
@@ -43,13 +42,12 @@ interface MemoryCardProps {
   } | null
   isCreator: boolean
   themeColor?: ThemeColor
-  onMemoryDeleted: () => void // Callback to refresh memories in parent
 }
 
 export function MemoryCard({
-  memoryId, // This prop is now assumed to be the unique ID of the memory
+  memoryId,
   memorialId,
-  memory, // Now directly of type MemoryContent
+  memory,
   pageName,
   currentUser,
   isCreator,
@@ -61,18 +59,17 @@ export function MemoryCard({
     superLightColor: "bg-purple-50",
     textColor: "text-purple-600",
   },
-  onMemoryDeleted, // Destructure the callback
 }: MemoryCardProps) {
   const router = useRouter()
   const supabase = createClientComponentClient()
 
-  // Directly use the 'memory' prop as it's now guaranteed to be parsed
-  const [content, setContent] = useState(memory.content)
-  const [imageUrl, setImageUrl] = useState<string | null>(memory.imageUrl)
-  const [createdAt, setCreatedAt] = useState(memory.createdAt)
-  const [author, setAuthor] = useState<{ id: string; username: string; avatar_url: string | null } | null>(
-    memory.author,
-  ) // Changed to | null
+  // Parse memory content
+  const [content, setContent] = useState("")
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [createdAt, setCreatedAt] = useState(new Date().toISOString())
+  const [author, setAuthor] = useState<
+    { id: string; username: string; avatar_url: string | null } | undefined
+  >(undefined)
 
   const [isLiked, setIsLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
@@ -85,13 +82,109 @@ export function MemoryCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // No need for complex parsing useEffect here anymore, as 'memory' prop is pre-parsed
+  // Parse memory content on mount
   useEffect(() => {
-    setContent(memory.content)
-    setImageUrl(memory.imageUrl)
-    setCreatedAt(memory.createdAt)
-    setAuthor(memory.author)
-  }, [memory]) // Re-run if the memory object itself changes
+    // Function to recursively parse potentially nested JSON
+    const parseNestedJson = (data: any): MemoryContent & { author?: any } => {
+      // If it's a string, try to parse it as JSON
+      if (typeof data === "string") {
+        try {
+          if (data.trim().startsWith("{") || data.includes('\\"')) {
+            const parsed = JSON.parse(data)
+            if (typeof parsed === "string" && (parsed.trim().startsWith("{") || parsed.includes('\\"'))) {
+              return parseNestedJson(parsed)
+            }
+            if (typeof parsed === "object" && parsed !== null) {
+              if (parsed.content !== undefined) {
+                return {
+                  content: parsed.content || "",
+                  imageUrl: parsed.imageUrl || null,
+                  createdAt: parsed.createdAt || new Date().toISOString(),
+                  author: parsed.author || undefined,
+                }
+              } else if (parsed.imageUrl !== undefined) {
+                return {
+                  content: "",
+                  imageUrl: parsed.imageUrl,
+                  createdAt: parsed.createdAt || new Date().toISOString(),
+                  author: parsed.author || undefined,
+                }
+              }
+            }
+            return {
+              content: typeof parsed === "string" ? parsed : JSON.stringify(parsed),
+              imageUrl: null,
+              createdAt: new Date().toISOString(),
+              author: undefined,
+            }
+          }
+        } catch (e) {
+          console.log("Failed to parse memory JSON:", e)
+        }
+        return {
+          content: data,
+          imageUrl: null,
+          createdAt: new Date().toISOString(),
+          author: undefined,
+        }
+      }
+
+      // If it's already an object with content property
+      if (typeof data === "object" && data !== null) {
+        if (typeof data.content === "string" && (data.content.trim().startsWith("{") || data.content.includes('\\"'))) {
+          try {
+            const parsedContent = JSON.parse(data.content)
+            if (
+              typeof parsedContent === "object" &&
+              parsedContent !== null &&
+              (parsedContent.content !== undefined || parsedContent.imageUrl !== undefined)
+            ) {
+              return {
+                content: parsedContent.content || "",
+                imageUrl: parsedContent.imageUrl || data.imageUrl || null,
+                createdAt: parsedContent.createdAt || data.createdAt || new Date().toISOString(),
+                author: parsedContent.author || data.author || undefined,
+              }
+            }
+          } catch (e) {
+            console.log("Failed to parse nested content:", e)
+          }
+        }
+
+        return {
+          content: data.content || "",
+          imageUrl: data.imageUrl || null,
+          createdAt: data.createdAt || new Date().toISOString(),
+          author: data.author || undefined,
+        }
+      }
+
+      return {
+        content: String(data),
+        imageUrl: null,
+        createdAt: new Date().toISOString(),
+        author: undefined,
+      }
+    }
+
+    // Parse the memory data
+    const parsedMemory = parseNestedJson(memory)
+
+    setContent(parsedMemory.content)
+    setImageUrl(parsedMemory.imageUrl)
+    setCreatedAt(parsedMemory.createdAt)
+
+    // Set author information
+    if (parsedMemory.author) {
+      setAuthor({
+        id: parsedMemory.author.id || "unknown",
+        username: parsedMemory.author.username || "Anonymous",
+        avatar_url: parsedMemory.author.avatar_url || null,
+      })
+    } else {
+      setAuthor(undefined)
+    }
+  }, [memory])
 
   const formattedDate = new Date(createdAt).toLocaleDateString("en-US", {
     month: "short",
@@ -108,13 +201,12 @@ export function MemoryCard({
         const { data } = await supabase
           .from("memory_likes")
           .select()
-          .eq("memory_id", memoryId) // Use memoryId from props
+          .eq("memory_id", memoryId)
           .eq("user_id", currentUser.id)
           .single()
 
         setIsLiked(!!data)
       } catch (error) {
-        // Not liked
         setIsLiked(false)
       }
     }
@@ -125,7 +217,7 @@ export function MemoryCard({
         const { count: likeCountData } = await supabase
           .from("memory_likes")
           .select("*", { count: "exact" })
-          .eq("memory_id", memoryId) // Use memoryId from props
+          .eq("memory_id", memoryId)
 
         setLikeCount(likeCountData || 0)
 
@@ -133,7 +225,7 @@ export function MemoryCard({
         const { count: commentCountData } = await supabase
           .from("memory_comments")
           .select("*", { count: "exact" })
-          .eq("memory_id", memoryId) // Use memoryId from props
+          .eq("memory_id", memoryId)
 
         setCommentCount(commentCountData || 0)
       } catch (error) {
@@ -143,11 +235,10 @@ export function MemoryCard({
 
     fetchLikeStatus()
     fetchCounts()
-  }, [memoryId, currentUser, supabase]) // Depend on memoryId
+  }, [memoryId, currentUser, supabase])
 
   const handleLike = async () => {
     if (!currentUser) {
-      // Prompt to login
       setError("Please log in to like this memory")
       setTimeout(() => setError(null), 3000)
       return
@@ -158,7 +249,7 @@ export function MemoryCard({
     setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1))
 
     try {
-      const result = await likeMemory(memoryId) // Use memoryId from props
+      const result = await likeMemory(memoryId)
 
       if (result.error) {
         // Revert optimistic update on error
@@ -187,12 +278,12 @@ export function MemoryCard({
         const { data, error } = await supabase
           .from("memory_comments")
           .select(`
-          id,
-          content,
-          created_at,
-          user:user_id (id, username, avatar_url)
-        `)
-          .eq("memory_id", memoryId) // Use memoryId from props
+            id,
+            content,
+            created_at,
+            user:user_id (id, username, avatar_url)
+          `)
+          .eq("memory_id", memoryId)
           .order("created_at", { ascending: true })
 
         if (error) throw error
@@ -225,7 +316,7 @@ export function MemoryCard({
     setError(null)
 
     try {
-      const result = await addMemoryComment(memoryId, newComment) // Use memoryId from props
+      const result = await addMemoryComment(memoryId, newComment)
 
       if (result.error) {
         console.error(result.error)
@@ -257,26 +348,13 @@ export function MemoryCard({
   }
 
   const handleDelete = async () => {
-    // Ensure 'author' state is set before checking authorization
-    if (!author && !isCreator) {
-      setError("Cannot determine authorization to delete this memory.")
-      setTimeout(() => setError(null), 3000)
-      return
-    }
-
-    // Authorization check: current user is the author OR current user is the memorial creator
-    if (!isCreator && !(currentUser && author && currentUser.id === author.id)) {
-      setError("You are not authorized to delete this memory.")
-      setTimeout(() => setError(null), 3000)
-      return
-    }
+    if (!isCreator && !(currentUser && author && currentUser.id === author.id)) return
 
     setIsDeleting(true)
     setError(null)
 
     try {
-      // Call the deleteMemory Server Action with the unique memoryId
-      const result = await deleteMemory(memorialId, memoryId)
+      const result = await deleteMemory(memoryId, memorialId)
 
       if (result.error) {
         console.error(result.error)
@@ -284,8 +362,8 @@ export function MemoryCard({
         return
       }
 
-      // Notify the parent component (MemorialPage) to refresh the memories list
-      onMemoryDeleted()
+      // Refresh the page to show updated memories
+      router.refresh()
     } catch (error) {
       console.error("Error deleting memory:", error)
       setError("Failed to delete memory. Please try again.")
@@ -295,11 +373,11 @@ export function MemoryCard({
     }
   }
 
-  // Determine if the current user can delete this memory for UI rendering
+  // Determine if the current user can delete this memory
   const canDelete = isCreator || (currentUser && author && currentUser.id === author.id)
 
   return (
-    <div className={`bg-white rounded-2xl border border-gray-200 p-4 mb-4 shadow-sm hover:shadow-md transition-shadow`}>
+    <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4 shadow-sm hover:shadow-md transition-shadow">
       {error && (
         <Alert className="mb-4 border-red-200 bg-red-50">
           <AlertDescription className="text-red-800">{error}</AlertDescription>
@@ -345,7 +423,6 @@ export function MemoryCard({
         <div className="w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              {/* Display the author's username instead of the memorial name */}
               <h3 className="font-medium text-gray-900">{author ? author.username : "Anonymous"}</h3>
               <span className="mx-2 text-gray-500">·</span>
               <span className="text-gray-500">{formattedDate}</span>
@@ -392,7 +469,6 @@ export function MemoryCard({
           </div>
           <p className="mt-1 text-gray-900 whitespace-pre-wrap">{content}</p>
 
-          {/* Display image if available - now from Vercel Blob */}
           {imageUrl && (
             <div className="mt-3 rounded-lg overflow-hidden">
               <div className="relative w-full h-64">
@@ -426,7 +502,6 @@ export function MemoryCard({
         </div>
       </div>
 
-      {/* Comments section */}
       {showComments && (
         <div className="mt-4 pt-3 border-t border-gray-100">
           {comments.length > 0 ? (
@@ -448,7 +523,7 @@ export function MemoryCard({
                       />
                     </div>
                   </div>
-                  <div className={`flex-1 ${themeColor.superLightColor} rounded-lg p-2`}>
+                  <div className={`${themeColor.superLightColor} rounded-lg p-2 flex-1`}>
                     <div className="flex items-center">
                       <span className="font-medium text-sm">{comment.user.username}</span>
                       <span className="mx-1 text-gray-500 text-xs">·</span>
@@ -460,7 +535,7 @@ export function MemoryCard({
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-sm mb-3">No comments yet. Be the first to comment!</p>
+            <p className="text-sm text-gray-500 mb-3">No comments yet. Be the first to comment!</p>
           )}
 
           {currentUser ? (
@@ -480,7 +555,7 @@ export function MemoryCard({
                   />
                 </div>
               </div>
-              <div className="flex-1 relative">
+              <div className="relative flex-1">
                 <input
                   type="text"
                   value={newComment}
@@ -491,7 +566,7 @@ export function MemoryCard({
                 <button
                   type="submit"
                   disabled={!newComment.trim() || isSubmitting}
-                  className={`absolute right-2 top-1/2 transform -translate-y-1/2 ${themeColor.textColor} disabled:text-gray-400`}
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 ${themeColor.textColor} disabled:text-gray-400`}
                 >
                   <Send className="w-4 h-4" />
                 </button>

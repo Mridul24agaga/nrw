@@ -1,14 +1,13 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useRef } from "react"
-import { ImageIcon, X, Upload, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { ImageIcon, X, Upload, CheckCircle, AlertCircle } from "lucide-react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button" // Assuming Button is available
-import { Textarea } from "@/components/ui/textarea" // Assuming Textarea is available
-import { useActionState } from "react" // Import useActionState
-import { addMemoryToMemorial } from "@/actions/memorial" // Import the server action
 
 interface ThemeColor {
   name: string
@@ -23,12 +22,17 @@ interface AddMemoryFormProps {
   memorialId: string
   onMemoryAdded: (newMemory: string, imageUrl?: string) => void
   themeColor?: ThemeColor
-  currentUser: {
-    // Add currentUser prop
+}
+
+interface MemoryObject {
+  content: string
+  imageUrl: string | null
+  createdAt: string
+  author?: {
     id: string
     username: string
     avatar_url: string | null
-  } | null
+  }
 }
 
 export function AddMemoryForm({
@@ -42,85 +46,18 @@ export function AddMemoryForm({
     superLightColor: "bg-purple-50",
     textColor: "text-purple-600",
   },
-  currentUser, // Destructure currentUser
 }: AddMemoryFormProps) {
-  const [memoryContent, setMemoryContent] = useState("") // Renamed from 'content' for clarity
+  const [content, setContent] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // useActionState for server action
-  const [state, formAction, isSubmitting] = useActionState(async (prevState: any, formData: FormData) => {
-    if (!currentUser) {
-      return { error: "You must be logged in to share a memory." }
-    }
-
-    const content = formData.get("memoryContent") as string
-    const imageFile = formData.get("imageFile") as File | null // Assuming file input name is 'imageFile'
-
-    if (!content.trim() && !imageUrl && (!imageFile || imageFile.size === 0)) {
-      return { error: "Memory cannot be empty. Please write something or upload an image." }
-    }
-
-    let uploadedImageUrl: string | null = imageUrl // Start with already uploaded image if any
-
-    // Handle new image upload if a file is provided
-    if (imageFile && imageFile.size > 0) {
-      // Validate file type
-      if (!imageFile.type.startsWith("image/")) {
-        return { error: "Please upload an image file." }
-      }
-      // Validate file size (max 10MB)
-      if (imageFile.size > 10 * 1024 * 1024) {
-        return { error: "File size must be less than 10MB." }
-      }
-
-      setIsUploading(true) // Set uploading state for UI feedback
-      try {
-        const uploadFormData = new FormData()
-        uploadFormData.append("file", imageFile)
-
-        const response = await fetch("/api/blob-memory-upload", {
-          method: "POST",
-          body: uploadFormData,
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: "Image upload failed" }))
-          throw new Error(errorData.error || `Image upload failed with status: ${response.status}`)
-        }
-
-        const result = await response.json()
-        uploadedImageUrl = result.imageUrl
-      } catch (uploadError: any) {
-        console.error("Error uploading image:", uploadError)
-        return { error: uploadError.message || "Failed to upload image. Please try again." }
-      } finally {
-        setIsUploading(false) // Reset uploading state
-      }
-    }
-
-    // Call the new server action to add the memory
-    const result = await addMemoryToMemorial(
-      memorialId,
-      content,
-      uploadedImageUrl,
-      currentUser, // Pass the current user as author
-    )
-
-    if (result.error) {
-      return { error: result.error }
-    } else {
-      setMemoryContent("")
-      setImageUrl(null) // Clear image preview
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "" // Clear file input
-      }
-      onMemoryAdded(content, uploadedImageUrl || undefined) // Notify parent
-      return { success: true, message: "Memory shared successfully!" }
-    }
-  }, null) // Initial state for useActionState
+  const supabase = createClientComponentClient()
+  const router = useRouter()
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -139,22 +76,60 @@ export function AddMemoryForm({
     setDragActive(false)
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      // Set the file to the input so it's included in FormData
-      const dataTransfer = new DataTransfer()
-      dataTransfer.items.add(e.dataTransfer.files[0])
-      if (fileInputRef.current) {
-        fileInputRef.current.files = dataTransfer.files
-      }
-      // No need to call handleImageUpload here, formAction will handle it
-      setImageUrl(URL.createObjectURL(e.dataTransfer.files[0])) // Show preview immediately
+      await handleImageUpload(e.dataTransfer.files[0])
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setImageUrl(URL.createObjectURL(e.target.files[0])) // Show preview immediately
-    } else {
-      setImageUrl(null)
+      await handleImageUpload(e.target.files[0])
+    }
+  }
+
+  const handleImageUpload = async (file: File) => {
+    if (isUploading) return
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file")
+      return
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File size must be less than 10MB")
+      return
+    }
+
+    setIsUploading(true)
+    setError(null)
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      // Use the new Vercel Blob API route
+      const response = await fetch("/api/blob-memory-upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Upload failed" }))
+        throw new Error(errorData.error || `Upload failed with status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      setImageUrl(result.imageUrl)
+      setSuccess("Image uploaded successfully!")
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (error) {
+      console.error("Error uploading image:", error)
+      setError(error instanceof Error ? error.message : "Failed to upload image. Please try again.")
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -165,26 +140,192 @@ export function AddMemoryForm({
     }
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if ((!content || !content.trim()) && !imageUrl) {
+      setError("Please add some content or upload an image to share a memory.")
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      // Check if user is authenticated
+      const { data: userData, error: userError } = await supabase.auth.getUser()
+      if (userError) {
+        throw new Error("You must be signed in to share memories. Please sign in and try again.")
+      }
+
+      if (!userData.user) {
+        throw new Error("Authentication required. Please sign in to share memories.")
+      }
+
+      console.log("User authenticated:", userData.user.id)
+
+      // Get user profile data for author information
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("username, avatar_url")
+        .eq("id", userData.user.id)
+        .single()
+
+      if (profileError && profileError.code !== "PGRST116") {
+        console.error("Error fetching profile:", profileError)
+      }
+
+      // Create new memory object with enhanced author info
+      const newMemory: MemoryObject = {
+        content: content.trim(),
+        imageUrl: imageUrl || null,
+        createdAt: new Date().toISOString(),
+        author: {
+          id: userData.user.id,
+          username: profileData?.username || userData.user.email?.split("@")[0] || "Anonymous",
+          avatar_url: profileData?.avatar_url || null,
+        },
+      }
+
+      console.log("New memory object:", newMemory)
+      console.log("Memorial ID:", memorialId)
+
+      // Get current memories from database with better error handling
+      const { data: currentData, error: fetchError } = await supabase
+        .from("memorialpages212515")
+        .select("memory_message")
+        .eq("id", memorialId)
+        .single()
+
+      if (fetchError) {
+        console.error("Error fetching current memories:", fetchError)
+        // If the memorial doesn't exist or we can't access it, throw an error
+        if (fetchError.code === "PGRST116") {
+          throw new Error("Memorial not found. Please check if the memorial page exists.")
+        }
+        throw new Error(`Failed to access memorial data: ${fetchError.message}`)
+      }
+
+      console.log("Current memorial data:", currentData)
+
+      // Initialize existing memories array
+      let existingMemories: MemoryObject[] = []
+
+      // Parse existing memories safely
+      if (currentData?.memory_message) {
+        try {
+          // If it's already an array, use it directly
+          if (Array.isArray(currentData.memory_message)) {
+            existingMemories = currentData.memory_message.filter((memory) => memory !== null && memory !== undefined)
+          }
+          // If it's a single object, wrap it in an array
+          else if (typeof currentData.memory_message === "object" && currentData.memory_message !== null) {
+            existingMemories = [currentData.memory_message]
+          }
+          // If it's a string (old format), try to parse it
+          else if (typeof currentData.memory_message === "string") {
+            try {
+              const parsed = JSON.parse(currentData.memory_message)
+              existingMemories = Array.isArray(parsed) ? parsed : [parsed]
+            } catch {
+              // If parsing fails, treat as a simple string memory
+              existingMemories = [
+                {
+                  content: currentData.memory_message,
+                  imageUrl: null,
+                  createdAt: new Date().toISOString(),
+                },
+              ]
+            }
+          }
+        } catch (error) {
+          console.error("Error parsing existing memories:", error)
+          existingMemories = []
+        }
+      }
+
+      console.log("Existing memories:", existingMemories)
+
+      // Add new memory to existing memories
+      const updatedMemories = [...existingMemories, newMemory]
+
+      console.log("Updated memories array:", updatedMemories)
+
+      // Update database with all memories - CRITICAL: Use RLS bypass or ensure proper permissions
+      const { data: updateData, error: updateError } = await supabase
+        .from("memorialpages212515")
+        .update({
+          memory_message: updatedMemories,
+        })
+        .eq("id", memorialId)
+        .select()
+
+      if (updateError) {
+        console.error("Database update error:", updateError)
+
+        // Check if it's a permission error
+        if (updateError.code === "42501" || updateError.message.includes("permission")) {
+          throw new Error(
+            "You don't have permission to add memories to this memorial. Please contact the memorial creator.",
+          )
+        }
+
+        // Check if it's a policy violation
+        if (updateError.code === "23506" || updateError.message.includes("policy")) {
+          throw new Error("Unable to add memory due to security policy. Please try again or contact support.")
+        }
+
+        throw new Error(`Failed to save your memory: ${updateError.message}`)
+      }
+
+      console.log("Memory saved successfully:", updateData)
+
+      // Show success message
+      setSuccess("Your memory has been shared successfully!")
+
+      // Call the callback with the new memory
+      onMemoryAdded(content || "", imageUrl || undefined)
+
+      // Reset form
+      setContent("")
+      setImageUrl(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+
+      console.log("Memory added successfully. Total memories:", updatedMemories.length)
+
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccess(null), 5000)
+    } catch (error) {
+      console.error("Error adding memory:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to add memory. Please try again."
+      setError(errorMessage)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <div className="mt-8 mb-6">
       {/* Success Alert */}
-      {state?.success && (
+      {success && (
         <Alert className="mb-4 border-green-200 bg-green-50">
           <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800">{state.message}</AlertDescription>
+          <AlertDescription className="text-green-800">{success}</AlertDescription>
         </Alert>
       )}
 
       {/* Error Alert */}
-      {state?.error && (
+      {error && (
         <Alert className="mb-4 border-red-200 bg-red-50">
           <AlertCircle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">{state.error}</AlertDescription>
+          <AlertDescription className="text-red-800">{error}</AlertDescription>
         </Alert>
       )}
 
       <form
-        action={formAction} // Use formAction from useActionState
+        onSubmit={handleSubmit}
         className="bg-white rounded-xl border border-gray-200 shadow-sm"
         onDragEnter={handleDrag}
       >
@@ -195,14 +336,11 @@ export function AddMemoryForm({
             </div>
           </div>
           <div className="flex-grow">
-            <Textarea
-              name="memoryContent" // Name for FormData
-              placeholder="Share a special memory, story, or tribute..."
-              value={memoryContent}
-              onChange={(e) => setMemoryContent(e.target.value)}
-              rows={4}
-              className={`resize-none focus:ring-2 focus:ring-${themeColor.name}-500 focus:border-transparent`}
-              disabled={isSubmitting || !currentUser}
+            <textarea
+              placeholder="Share a special memory, story, or tribute... Anyone can contribute to honor this person's memory."
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="w-full min-h-[120px] bg-gray-50 rounded-lg p-4 text-gray-700 placeholder-gray-500 border-0 resize-none focus:ring-0 focus:outline-none focus:bg-white transition-colors"
             />
 
             {/* Image preview area */}
@@ -243,7 +381,6 @@ export function AddMemoryForm({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  name="imageFile" // Name for FormData
                   accept="image/*"
                   onChange={handleFileChange}
                   className="hidden"
@@ -280,13 +417,13 @@ export function AddMemoryForm({
             <CheckCircle className="h-4 w-4 text-green-500" />
             Open for all to share
           </div>
-          <Button
+          <button
             type="submit"
-            disabled={isSubmitting || (!memoryContent.trim() && !imageUrl) || isUploading || !currentUser}
+            disabled={isSubmitting || (!content.trim() && !imageUrl) || isUploading}
             className={`
               inline-flex items-center px-6 py-2 rounded-full font-medium transition-all
               ${
-                isSubmitting || (!memoryContent.trim() && !imageUrl) || isUploading || !currentUser
+                isSubmitting || (!content.trim() && !imageUrl) || isUploading
                   ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                   : `${themeColor.color} ${themeColor.hoverColor} text-white shadow-sm hover:shadow-md`
               }
@@ -294,13 +431,25 @@ export function AddMemoryForm({
           >
             {isSubmitting ? (
               <span className="flex items-center">
-                <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
                 Sharing Memory...
               </span>
             ) : (
               <span>Share Memory</span>
             )}
-          </Button>
+          </button>
         </div>
       </form>
 
