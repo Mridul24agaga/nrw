@@ -51,6 +51,7 @@ export default function Header() {
   const [isSearching, setIsSearching] = useState(false)
   const [noResultsFound, setNoResultsFound] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [hasUser, setHasUser] = useState(false)
   const supabase = createClientComponentClient()
   const router = useRouter()
   const searchRef = useRef<HTMLFormElement>(null)
@@ -64,6 +65,7 @@ export default function Header() {
         } = await supabase.auth.getUser()
 
         if (user) {
+          setHasUser(true)
           const { data: profileData } = await supabase
             .from("profiles")
             .select("username, display_name, avatar_url")
@@ -84,9 +86,12 @@ export default function Header() {
           } else {
             setMemorialPages(pagesData || [])
           }
+        } else {
+          setHasUser(false)
         }
       } catch (error) {
         console.error("Unexpected error in fetchUserAndPages:", error)
+        setHasUser(false)
       }
     }
 
@@ -223,154 +228,160 @@ export default function Header() {
           </form>
 
           <div className="relative w-full sm:w-auto account-dropdown">
-            <button
-              onClick={(e) => {
-                e.stopPropagation() // Prevent event from bubbling up
-                setIsDropdownOpen(!isDropdownOpen)
-              }}
-              className="flex items-center justify-center w-full sm:w-auto gap-2 rounded-lg p-2 hover:bg-gray-100 account-toggle"
-            >
-              {profile?.avatar_url ? (
-                <Image
-                  src={profile.avatar_url || "/placeholder.svg"}
-                  alt={profile.display_name}
-                  width={20}
-                  height={20}
-                  className="rounded-full"
-                />
-              ) : (
-                <User className="h-5 w-5 text-black" />
-              )}
-              <span className="font-medium text-black">Accounts</span>
-            </button>
-
-            {isDropdownOpen && (
-              <div
-                className="absolute right-0 left-0 sm:left-auto mt-2 w-full sm:w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-50"
-                onClick={(e) => e.stopPropagation()} // Prevent clicks from closing mobile menu
-              >
-                <div className="px-4 py-2 text-sm text-black">Switch Account</div>
-                <div className="h-px bg-gray-200" />
+            {hasUser && (
+              <>
                 <button
-                  onClick={() => handleSwitchAccount(profile?.username || "")}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-black hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation() // Prevent event from bubbling up
+                    setIsDropdownOpen(!isDropdownOpen)
+                  }}
+                  className="flex items-center justify-center w-full sm:w-auto gap-2 rounded-lg p-2 hover:bg-gray-100 account-toggle"
                 >
                   {profile?.avatar_url ? (
                     <Image
                       src={profile.avatar_url || "/placeholder.svg"}
                       alt={profile.display_name}
-                      width={16}
-                      height={16}
+                      width={20}
+                      height={20}
                       className="rounded-full"
                     />
                   ) : (
-                    <User size={16} className="text-black" />
+                    <User className="h-5 w-5 text-black" />
                   )}
-                  <span className="text-black">{profile?.display_name || profile?.username || "Loading..."}</span>
+                  <span className="font-medium text-black">Accounts</span>
                 </button>
-                <div className="h-px bg-gray-200" />
-                {memorialPages.map((page) => (
-                  <button
-                    key={page.id}
-                    onClick={() => handleSwitchAccount(page.page_name, true)}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-black hover:bg-gray-100"
+
+                {isDropdownOpen && (
+                  <div
+                    className="absolute right-0 left-0 sm:left-auto mt-2 w-full sm:w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-50"
+                    onClick={(e) => e.stopPropagation()} // Prevent clicks from closing mobile menu
                   >
-                    <Image src="/memorial-icon.png" alt="Memorial" width={16} height={16} />
-                    <span className="text-black">{page.name}</span>
-                  </button>
-                ))}
-                <div className="h-px bg-gray-200" />
-                <Link
-                  href="/create-memorial"
-                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-black hover:bg-gray-100"
-                  onClick={() => setIsDropdownOpen(false)}
-                >
-                  <Plus size={16} className="text-black" />
-                  <span className="text-black">Create Memorial</span>
-                </Link>
-                <div className="h-px bg-gray-200" />
-                <button
-                  onClick={handleLogout}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-black hover:bg-gray-100"
-                >
-                  <LogOut size={16} className="text-black" />
-                  <span className="text-black">Logout</span>
-                </button>
-              </div>
+                    <div className="px-4 py-2 text-sm text-black">Switch Account</div>
+                    <div className="h-px bg-gray-200" />
+                    <button
+                      onClick={() => handleSwitchAccount(profile?.username || "")}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-black hover:bg-gray-100"
+                    >
+                      {profile?.avatar_url ? (
+                        <Image
+                          src={profile.avatar_url || "/placeholder.svg"}
+                          alt={profile.display_name}
+                          width={16}
+                          height={16}
+                          className="rounded-full"
+                        />
+                      ) : (
+                        <User size={16} className="text-black" />
+                      )}
+                      <span className="text-black">{profile?.display_name || profile?.username || "Loading..."}</span>
+                    </button>
+                    <div className="h-px bg-gray-200" />
+                    {memorialPages.map((page) => (
+                      <button
+                        key={page.id}
+                        onClick={() => handleSwitchAccount(page.page_name, true)}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-black hover:bg-gray-100"
+                      >
+                        <Image src="/memorial-icon.png" alt="Memorial" width={16} height={16} />
+                        <span className="text-black">{page.name}</span>
+                      </button>
+                    ))}
+                    <div className="h-px bg-gray-200" />
+                    <Link
+                      href="/create-memorial"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-black hover:bg-gray-100"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      <Plus size={16} className="text-black" />
+                      <span className="text-black">Create Memorial</span>
+                    </Link>
+                    <div className="h-px bg-gray-200" />
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-black hover:bg-gray-100"
+                    >
+                      <LogOut size={16} className="text-black" />
+                      <span className="text-black">Logout</span>
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {/* Mobile Navigation Menu - Only visible on mobile */}
-          <div className="w-full mt-4 border-t pt-4 sm:hidden">
-            <div className="flex flex-col gap-1">
-              <Link
-                href="/"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-              >
-                <Home size={18} />
-                <span>Home</span>
-              </Link>
+          {/* Mobile Navigation Menu - Only visible on mobile when user is authenticated */}
+          {hasUser && (
+            <div className="w-full mt-4 border-t pt-4 sm:hidden">
+              <div className="flex flex-col gap-1">
+                <Link
+                  href="/"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+                >
+                  <Home size={18} />
+                  <span>Home</span>
+                </Link>
 
-              <Link
-                href="/bookmarks"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-              >
-                <Bookmark size={18} />
-                <span>Bookmarks</span>
-              </Link>
+                <Link
+                  href="/bookmarks"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+                >
+                  <Bookmark size={18} />
+                  <span>Bookmarks</span>
+                </Link>
 
-              <Link
-                href="/create-memorial"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-              >
-                <Clock size={18} />
-                <span>Memories</span>
-              </Link>
+                <Link
+                  href="/create-memorial"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+                >
+                  <Clock size={18} />
+                  <span>Memories</span>
+                </Link>
 
-              <Link
-                href="/moneymaker"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-              >
-                <PenTool size={18} />
-                <span>Collage Maker</span>
-              </Link>
+                <Link
+                  href="/moneymaker"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+                >
+                  <PenTool size={18} />
+                  <span>Collage Maker</span>
+                </Link>
 
-              <Link
-                href="/companion"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-              >
-                <Users size={18} />
-                <span>Diary/ Virtual Companion</span>
-              </Link>
+                <Link
+                  href="/companion"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+                >
+                  <Users size={18} />
+                  <span>Diary/ Virtual Companion</span>
+                </Link>
 
-              <Link
-                href="/chat"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-              >
-                <MessageCircle size={18} />
-                <span>Chat</span>
-              </Link>
+                <Link
+                  href="/chat"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+                >
+                  <MessageCircle size={18} />
+                  <span>Chat</span>
+                </Link>
+              </div>
+
+              {/* Footer Navigation Group */}
+              <div className="flex flex-col gap-1 pt-4">
+                <Link
+                  href="/about"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+                >
+                  <Info size={18} />
+                  <span>About Us</span>
+                </Link>
+
+                <Link
+                  href="/legal"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
+                >
+                  <Scale size={18} />
+                  <span>Legal</span>
+                </Link>
+              </div>
             </div>
-
-            {/* Footer Navigation Group */}
-            <div className="flex flex-col gap-1 pt-4">
-              <Link
-                href="/about"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-              >
-                <Info size={18} />
-                <span>About Us</span>
-              </Link>
-
-              <Link
-                href="/legal"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-900 hover:bg-gray-100"
-              >
-                <Scale size={18} />
-                <span>Legal</span>
-              </Link>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </header>

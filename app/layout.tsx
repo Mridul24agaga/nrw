@@ -13,12 +13,6 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = createServerComponentClient({ cookies })
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
   return (
     <html lang="en">
       <head>
@@ -26,7 +20,7 @@ export default async function RootLayout({
       </head>
       <body className={inter.className}>
         <div className="min-h-screen bg-gray-50">
-          {session && <Header />}
+          <Header />
           <div className="mx-auto max-w-[1400px] px-8 py-6">{children}</div>
         </div>
 

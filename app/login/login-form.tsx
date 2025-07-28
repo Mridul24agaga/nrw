@@ -14,27 +14,25 @@ export default function LoginForm() {
   const router = useRouter()
   const supabase = createClientComponentClient()
 
-  useEffect(() => {
-    if (loading) {
-      const timer = setTimeout(() => {
-        router.push("/")
-      }, 2000) // Delay for 2 seconds before redirecting
-
-      return () => clearTimeout(timer)
-    }
-  }, [loading, router])
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
+    
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      
       if (error) {
         setError(error.message)
         setLoading(false)
+        return
       }
-      // If successful, the useEffect hook will handle the redirection
+
+      // If successful, redirect immediately
+      if (data.user) {
+        // Force a hard refresh to ensure the session is properly set
+        window.location.href = "/"
+      }
     } catch (err) {
       setError("An error occurred. Please try again later.")
       setLoading(false)
@@ -54,7 +52,7 @@ export default function LoginForm() {
               Loading...
             </span>
           </div>
-          <p className="mt-4 text-lg font-semibold text-gray-700">Redirecting to dashboard...</p>
+          <p className="mt-4 text-lg font-semibold text-gray-700">Logging you in...</p>
         </div>
       </div>
     )
