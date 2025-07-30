@@ -25,7 +25,10 @@ export default function MemorialPreview({ data }: MemorialPreviewProps) {
   const formatDateString = (dateString: string) => {
     if (!dateString) return ""
     try {
-      return new Date(dateString).toLocaleDateString("en-US", {
+      // Handle date string in YYYY-MM-DD format properly
+      const [year, month, day] = dateString.split('-').map(Number)
+      const date = new Date(year, month - 1, day) // month is 0-indexed in Date constructor
+      return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
         day: "numeric",
