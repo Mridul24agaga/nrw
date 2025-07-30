@@ -23,8 +23,6 @@ export default async function RootLayout({
           <Header />
           <div className="mx-auto max-w-[1400px] px-8 py-6">{children}</div>
         </div>
-
-       
       </body>
     </html>
   )

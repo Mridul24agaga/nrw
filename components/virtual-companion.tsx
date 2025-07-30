@@ -514,214 +514,223 @@ export default function VirtualCompanion() {
   if (!companionData) return null
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md">
-      <div className="flex items-center justify-between border-b p-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center">
-            <span className="text-white font-semibold">{companionData.name.charAt(0).toUpperCase()}</span>
-          </div>
-          <div>
-            <h2 className="font-semibold text-lg">{companionData.name}</h2>
-            {currentMode === "chat" && <p className="text-sm text-gray-500">Mood: {mood}</p>}
-          </div>
-        </div>
-        <button
-          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-          className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </button>
+    <div className="relative">
+      <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 mb-4 rounded" role="alert">
+        <strong>Disclaimer:</strong> The AI Companion is for informational and entertainment purposes only. It does not provide medical, legal, or professional advice.
       </div>
-
-      {isSettingsOpen && (
-        <div className="p-4 border-b">
-          <h3 className="font-semibold mb-2">Companion Settings</h3>
-          <div className="flex items-center justify-between">
-            <span>Enable Diary Mode</span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={companionData.diary_mode}
-                onChange={() => toggleSetting("diary_mode")}
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md">
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 flex items-center gap-2" role="alert">
+          <span className="font-bold">AI Disclaimer:</span>
+          <span>This chatbot is powered by artificial intelligence. Responses may be inaccurate, incomplete, or inappropriate. Do not rely on the chatbot for medical, legal, or other professional advice.</span>
+        </div>
+        <div className="flex items-center justify-between border-b p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center">
+              <span className="text-white font-semibold">{companionData.name.charAt(0).toUpperCase()}</span>
+            </div>
+            <div>
+              <h2 className="font-semibold text-lg">{companionData.name}</h2>
+              {currentMode === "chat" && <p className="text-sm text-gray-500">Mood: {mood}</p>}
+            </div>
+          </div>
+          <button
+            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+            className="p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fillRule="evenodd"
+                d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+                clipRule="evenodd"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-            </label>
-          </div>
+            </svg>
+          </button>
         </div>
-      )}
 
-      {currentMode === "diary" && (
-        <div className="border-b">
-          <div className="flex">
-            <button
-              className={`flex-1 py-2 text-center font-medium ${
-                activeTab === "diary" ? "border-b-2 border-indigo-500 text-indigo-600" : "text-gray-500"
-              }`}
-              onClick={() => setActiveTab("diary")}
-            >
-              My Diary
-            </button>
+        {isSettingsOpen && (
+          <div className="p-4 border-b">
+            <h3 className="font-semibold mb-2">Companion Settings</h3>
+            <div className="flex items-center justify-between">
+              <span>Enable Diary Mode</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={companionData.diary_mode}
+                  onChange={() => toggleSetting("diary_mode")}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="h-[calc(100vh-400px)] overflow-y-auto p-4 space-y-4">
-        {currentMode === "chat"
-          ? companionData.messages
-              .filter((message) => message.role !== "diary")
-              .map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex items-start gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
-                >
-                  <div className="h-8 w-8 rounded-full flex-shrink-0">
-                    {message.role === "bot" ? (
-                      <div className="h-full w-full rounded-full bg-indigo-500 flex items-center justify-center">
-                        <span className="text-white text-sm font-semibold">
-                          {companionData.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="h-full w-full rounded-full bg-gray-400 flex items-center justify-center">
-                        <span className="text-white text-sm font-semibold">U</span>
-                      </div>
-                    )}
-                  </div>
+        {currentMode === "diary" && (
+          <div className="border-b">
+            <div className="flex">
+              <button
+                className={`flex-1 py-2 text-center font-medium ${
+                  activeTab === "diary" ? "border-b-2 border-indigo-500 text-indigo-600" : "text-gray-500"
+                }`}
+                onClick={() => setActiveTab("diary")}
+              >
+                My Diary
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="h-[calc(100vh-400px)] overflow-y-auto p-4 space-y-4">
+          {currentMode === "chat"
+            ? companionData.messages
+                .filter((message) => message.role !== "diary")
+                .map((message, index) => (
                   <div
-                    className={`rounded-lg p-3 max-w-[80%] ${
-                      message.role === "user" ? "bg-indigo-500 text-white" : "bg-gray-100"
-                    }`}
+                    key={index}
+                    className={`flex items-start gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}
                   >
-                    {message.content}
+                    <div className="h-8 w-8 rounded-full flex-shrink-0">
+                      {message.role === "bot" ? (
+                        <div className="h-full w-full rounded-full bg-indigo-500 flex items-center justify-center">
+                          <span className="text-white text-sm font-semibold">
+                            {companionData.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="h-full w-full rounded-full bg-gray-400 flex items-center justify-center">
+                          <span className="text-white text-sm font-semibold">U</span>
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      className={`rounded-lg p-3 max-w-[80%] ${
+                        message.role === "user" ? "bg-indigo-500 text-white" : "bg-gray-100"
+                      }`}
+                    >
+                      {message.content}
+                    </div>
                   </div>
+                ))
+            : diaryEntries.map((entry) => (
+                <div key={entry.id} className="border rounded-lg p-4 mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-sm text-gray-500">{new Date(entry.timestamp).toLocaleString()}</p>
+                  </div>
+                  <p>{entry.content}</p>
                 </div>
-              ))
-          : diaryEntries.map((entry) => (
-              <div key={entry.id} className="border rounded-lg p-4 mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <p className="text-sm text-gray-500">{new Date(entry.timestamp).toLocaleString()}</p>
-                </div>
-                <p>{entry.content}</p>
-              </div>
-            ))}
+              ))}
 
-        {isLoading && (
-          <div className="flex items-start gap-3">
-            <div className="h-8 w-8 rounded-full bg-gray-200 flex-shrink-0">
-              <div className="h-full w-full rounded-full bg-indigo-500 flex items-center justify-center">
-                <span className="text-white text-sm font-semibold">{companionData.name.charAt(0).toUpperCase()}</span>
+          {isLoading && (
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-full bg-gray-200 flex-shrink-0">
+                <div className="h-full w-full rounded-full bg-indigo-500 flex items-center justify-center">
+                  <span className="text-white text-sm font-semibold">{companionData.name.charAt(0).toUpperCase()}</span>
+                </div>
+              </div>
+              <div className="rounded-lg p-3 max-w-[80%] bg-gray-100">
+                <div className="flex space-x-2">
+                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"></div>
+                  <div
+                    className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                    style={{ animationDelay: "0.4s" }}
+                  ></div>
+                </div>
               </div>
             </div>
-            <div className="rounded-lg p-3 max-w-[80%] bg-gray-100">
-              <div className="flex space-x-2">
-                <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"></div>
-                <div
-                  className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
-                  style={{ animationDelay: "0.2s" }}
-                ></div>
-                <div
-                  className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
-                  style={{ animationDelay: "0.4s" }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="border-t p-4">
-        {error && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
-            <p className="font-bold">Error</p>
-            <p>{error}</p>
-          </div>
-        )}
-
-        {resetTimeInfo && (
-          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
-            <p className="font-bold">Usage Limit Reached</p>
-            <p>{resetTimeInfo}</p>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={toggleMode}
-            className="px-4 py-2 rounded-md bg-indigo-500 text-white flex items-center gap-2 hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-          >
-            {currentMode === "chat" ? (
-              <>
-                <Book size={20} />
-                Diary Mode
-              </>
-            ) : (
-              <>
-                <MessageSquare size={20} />
-                Chat Mode
-              </>
-            )}
-          </button>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={refreshUsage}
-              disabled={isRefreshing}
-              className="p-1 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50"
-              title="Refresh usage count"
-            >
-              <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
-            </button>
-            <p className="text-sm text-gray-500 cursor-pointer" onClick={manualCheckReset}>
-              {currentMode === "chat" ? (
-                companionData.uses_left > 0 ? (
-                  `${companionData.uses_left}/5 uses left`
-                ) : (
-                  <>
-                    {`0/5 uses left - `}
-                    <span className="text-indigo-600">Resets in {getTimeUntilReset()} hours</span>
-                  </>
-                )
-              ) : (
-                "Diary entries are saved permanently"
-              )}
-            </p>
-          </div>
+          )}
         </div>
 
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder={currentMode === "chat" ? "Type your message..." : "Write in your diary..."}
-            disabled={
-              (currentMode === "chat" && companionData.uses_left < 1) ||
-              isLoading ||
-              (currentMode === "chat" && !companionData)
-            }
-            maxLength={1000}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-          />
-          <button
-            type="submit"
-            disabled={(currentMode === "chat" && companionData.uses_left < 1) || isLoading || !message.trim()}
-            className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-              </svg>
-            )}
-          </button>
-        </form>
+        <div className="border-t p-4">
+          {error && (
+            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
+              <p className="font-bold">Error</p>
+              <p>{error}</p>
+            </div>
+          )}
+
+          {resetTimeInfo && (
+            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+              <p className="font-bold">Usage Limit Reached</p>
+              <p>{resetTimeInfo}</p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={toggleMode}
+              className="px-4 py-2 rounded-md bg-indigo-500 text-white flex items-center gap-2 hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >
+              {currentMode === "chat" ? (
+                <>
+                  <Book size={20} />
+                  Diary Mode
+                </>
+              ) : (
+                <>
+                  <MessageSquare size={20} />
+                  Chat Mode
+                </>
+              )}
+            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={refreshUsage}
+                disabled={isRefreshing}
+                className="p-1 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50"
+                title="Refresh usage count"
+              >
+                <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+              </button>
+              <p className="text-sm text-gray-500 cursor-pointer" onClick={manualCheckReset}>
+                {currentMode === "chat" ? (
+                  companionData.uses_left > 0 ? (
+                    `${companionData.uses_left}/5 uses left`
+                  ) : (
+                    <>
+                      {`0/5 uses left - `}
+                      <span className="text-indigo-600">Resets in {getTimeUntilReset()} hours</span>
+                    </>
+                  )
+                ) : (
+                  "Diary entries are saved permanently"
+                )}
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={currentMode === "chat" ? "Type your message..." : "Write in your diary..."}
+              disabled={
+                (currentMode === "chat" && companionData.uses_left < 1) ||
+                isLoading ||
+                (currentMode === "chat" && !companionData)
+              }
+              maxLength={1000}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            />
+            <button
+              type="submit"
+              disabled={(currentMode === "chat" && companionData.uses_left < 1) || isLoading || !message.trim()}
+              className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                </svg>
+              )}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   )

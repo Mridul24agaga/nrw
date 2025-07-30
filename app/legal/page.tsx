@@ -77,6 +77,9 @@ export default function TermsPage() {
                 defamatory, violates the rights of others, or violates these Terms or our Privacy Policy. We reserve the
                 right to remove any User Content that violates these Terms or our Privacy Policy.
               </p>
+              <p className="mt-4 text-red-700 font-semibold">
+                You understand that by using the Website, you may be exposed to content that you may find offensive, objectionable, or harmful. You agree to use the Website at your own risk.
+              </p>
             </section>
 
             <section>
@@ -171,9 +174,10 @@ export default function TermsPage() {
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mt-8 mb-4">7. Intellectual Property</h2>
               <p>
-                The Website and all of its original content, features, and functionality are and will remain the
-                exclusive property of the Company and its licensors. You may not use, reproduce, or distribute any
-                content from the Website without our express written permission.
+                The Website and all of its original content, features, and functionality are and will remain the exclusive property of the Company and its licensors. You may not use, reproduce, or distribute any content from the Website without our express written permission.
+              </p>
+              <p className="mt-4">
+                The “MemoriesLived” name and logo are trademarks of CJM Ashton, LLC. Unauthorized use of these marks is strictly prohibited.
               </p>
             </section>
 
@@ -234,12 +238,31 @@ export default function TermsPage() {
             </section>
 
             <section>
+              <h2 className="text-2xl font-semibold text-gray-900 mt-8 mb-4">AI Chatbot Disclaimer</h2>
+              <p>
+                The AI Companion is for informational and entertainment purposes only. It does not provide medical, legal, or professional advice.
+              </p>
+            </section>
+
+            <section>
               <h2 className="text-2xl font-semibold text-gray-900 mt-8 mb-4">14. Contact Us</h2>
               <p>
                 If you have any questions about these Terms, please contact us at{" "}
                 <a href="mailto:support@memorieslived.com" className="text-blue-600 hover:text-blue-800">
                   support@memorieslived.com
                 </a>
+              </p>
+            </section>
+            <section>
+              <h2 className="text-2xl font-semibold text-gray-900 mt-8 mb-4">Content Reporting Notice</h2>
+              <p>
+                Users may report content that they believe violates these Terms by using the ‘Contact Us’ page or emailing <a href="mailto:support@memorieslived.com" className="text-blue-600 hover:text-blue-800">support@memorieslived.com</a>. We reserve the right to investigate and take appropriate action.
+              </p>
+            </section>
+            <section>
+              <h2 className="text-2xl font-semibold text-gray-900 mt-8 mb-4">Copyright Infringement / DMCA Takedown Requests</h2>
+              <p>
+                If you believe your copyrighted work has been posted on our Website without authorization, please send a written DMCA takedown request to: <a href="mailto:support@memorieslived.com" className="text-blue-600 hover:text-blue-800">support@memorieslived.com</a>. Your request must include (1) a description of the work, (2) the location (URL) of the infringing content, and (3) your contact information and a statement under penalty of perjury that you are the copyright owner or authorized to act on their behalf.
               </p>
             </section>
           </div>

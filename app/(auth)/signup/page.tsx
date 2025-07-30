@@ -148,8 +148,8 @@ export default function SignUp() {
         // Don't fail the signup if database records fail
       }
 
-      // Success - redirect to login with hard refresh
-      window.location.href = "/login?message=Account created successfully! Please check your email to confirm your account before logging in."
+      // Success - redirect to login
+      router.push("/login?message=Account created successfully! Please check your email to confirm your account before logging in.")
     } catch (error) {
       console.error("Signup error:", error)
       if (error instanceof Error) {
