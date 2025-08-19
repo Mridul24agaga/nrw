@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Heart, MessageCircle, Bookmark, Trash2, MoreHorizontal } from "lucide-react"
-import { toggleLike, toggleBookmark, deletePost } from "../actions/post-actions"
+import { Heart, MessageCircle, Bookmark, Trash2, MoreHorizontal, Repeat2 } from "lucide-react"
+import { toggleLike, toggleBookmark, deletePost, toggleRepost } from "../actions/post-actions"
 import { CommentSection } from "./comment-section"
 import { useRouter } from "next/navigation"
 
@@ -10,30 +10,42 @@ interface PostActionsProps {
   postId: string
   initialLikeCount: number
   initialCommentCount: number
+  initialRepostCount?: number
   isLiked: boolean
   isBookmarked: boolean
+  isReposted?: boolean
   postUserId: string
   currentUserId: string | undefined
+  ownPostId?: string
+  ownPostUserId?: string
   // Add new callback props
   onLikeChange?: (isLiked: boolean) => void
   onBookmarkChange?: (isBookmarked: boolean) => void
+  onRepostChange?: (isReposted: boolean) => void
 }
 
 export function PostActions({
   postId,
   initialLikeCount,
   initialCommentCount,
+  initialRepostCount = 0,
   isLiked,
   isBookmarked,
+  isReposted = false,
   postUserId,
   currentUserId,
+  ownPostId,
+  ownPostUserId,
   onLikeChange,
   onBookmarkChange,
+  onRepostChange,
 }: PostActionsProps) {
   const [likeCount, setLikeCount] = useState(initialLikeCount)
   const [commentCount, setCommentCount] = useState(initialCommentCount)
+  const [repostCount, setRepostCount] = useState(initialRepostCount)
   const [liked, setLiked] = useState(isLiked)
   const [bookmarked, setBookmarked] = useState(isBookmarked)
+  const [reposted, setReposted] = useState(isReposted)
   const [isCommentSectionOpen, setIsCommentSectionOpen] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -47,10 +59,10 @@ export function PostActions({
     setBookmarked(isBookmarked)
     setLikeCount(initialLikeCount)
     setCommentCount(initialCommentCount)
-  }, [isLiked, isBookmarked, initialLikeCount, initialCommentCount])
+  }, [isLiked, isBookmarked, isReposted, initialLikeCount, initialCommentCount, initialRepostCount])
 
   // Check if current user is the post author
-  const isAuthor = currentUserId === postUserId
+  const isAuthor = currentUserId === (ownPostUserId ?? postUserId)
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -105,6 +117,21 @@ export function PostActions({
     }
   }
 
+  const handleRepost = async () => {
+    if (!currentUserId) return
+    try {
+      const result = await toggleRepost(postId)
+      if (result.success) {
+        const newRepostedState = !reposted
+        setReposted(newRepostedState)
+        setRepostCount((prev) => (newRepostedState ? prev + 1 : Math.max(0, prev - 1)))
+        if (onRepostChange) onRepostChange(newRepostedState)
+      }
+    } catch (error) {
+      console.error("Error toggling repost:", error)
+    }
+  }
+
   const toggleCommentSection = () => {
     setIsCommentSectionOpen(!isCommentSectionOpen)
   }
@@ -116,7 +143,7 @@ export function PostActions({
   const handleDelete = async () => {
     try {
       setIsDeleting(true)
-      await deletePost(postId)
+      await deletePost(ownPostId ?? postId)
       setIsDeleteDialogOpen(false)
       router.refresh()
     } catch (error) {
@@ -132,6 +159,10 @@ export function PostActions({
         <button onClick={handleLike} className="flex items-center gap-1 text-black" disabled={!currentUserId}>
           <Heart className={liked ? "fill-current text-red-500" : ""} />
           <span>{likeCount}</span>
+        </button>
+        <button onClick={handleRepost} className="flex items-center gap-1 text-black" disabled={!currentUserId}>
+          <Repeat2 className={reposted ? "text-green-600" : ""} />
+          <span>{repostCount}</span>
         </button>
         <button onClick={toggleCommentSection} className="flex items-center gap-1 text-black">
           <MessageCircle className={isCommentSectionOpen ? "text-blue-500" : ""} />

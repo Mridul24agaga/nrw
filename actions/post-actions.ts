@@ -183,3 +183,41 @@ export async function deletePost(postId: string) {
   
   return { success: true }
 }
+
+export async function toggleRepost(originalPostId: string) {
+  const supabase = createServerActionClient({ cookies })
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) {
+    return { error: "Not authenticated" }
+  }
+
+  // Has this user already reposted this post?
+  const { data: existingRepost, error: fetchError } = await supabase
+    .from("posts")
+    .select("id")
+    .eq("repost_of", originalPostId)
+    .eq("user_id", session.user.id)
+    .maybeSingle()
+
+  if (fetchError && fetchError.code !== "PGRST116") {
+    return { error: fetchError.message }
+  }
+
+  if (existingRepost) {
+    // Undo repost
+    const { error } = await supabase.from("posts").delete().eq("id", existingRepost.id)
+    if (error) return { error: error.message }
+  } else {
+    // Create repost row referencing the original post
+    const { error } = await supabase
+      .from("posts")
+      .insert({ user_id: session.user.id, repost_of: originalPostId, content: "", image_url: null })
+    if (error) return { error: error.message }
+  }
+
+  revalidatePath("/")
+  return { success: true }
+}

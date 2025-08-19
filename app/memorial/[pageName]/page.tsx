@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { getMemorial, getPostsWithComments } from "@/actions/memorial"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import Sidebar from "@/components/sidebar"
 import { AddMemoryForm } from "@/components/add-memory-form"
@@ -114,6 +114,8 @@ export default function MemorialPage() {
   const params = useParams()
   const pageName = params.pageName as string
   const router = useRouter()
+  const search = useSearchParams()
+  const isPreview = search?.get("preview") === "1"
 
   const [memorial, setMemorial] = useState<Memorial | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -716,6 +718,25 @@ export default function MemorialPage() {
           <div className="w-full lg:w-1/2">
             <div className="relative">
               <Card className="overflow-visible shadow-xl border-0">
+                {isPreview && (
+                  <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-sm px-4 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <span className="leading-5">Preview mode: You are viewing a random memorial.</span>
+                    <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+                      <button
+                        onClick={() => router.push(`/memorial/random`)}
+                        className="w-full sm:w-auto px-3 py-2 rounded-md border border-amber-300 text-amber-800 hover:bg-amber-100"
+                      >
+                        Next random
+                      </button>
+                      <button
+                        onClick={() => router.push(`/memorial/${pageName}`)}
+                        className="w-full sm:w-auto px-3 py-2 rounded-md bg-amber-600 text-white hover:bg-amber-700"
+                      >
+                        Open full page
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {/* Enhanced Header with FIXED avatar positioning */}
                 <div
                   className={`relative h-64 ${getHeaderClasses()}`}
@@ -1102,6 +1123,15 @@ export default function MemorialPage() {
                   </div>
                 </CardContent>
               </Card>
+              {isPreview && (
+                <button
+                  onClick={() => router.push(`/memorial/random`)}
+                  className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 rounded-full shadow-lg bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 text-sm sm:px-4 sm:py-2 sm:text-base"
+                  aria-label="Next random memorial"
+                >
+                  Next random
+                </button>
+              )}
             </div>
           </div>
 

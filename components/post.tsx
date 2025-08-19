@@ -16,11 +16,15 @@ interface PostProps {
     user_id: string
     created_at: string
     image_url?: string | null
+    repost_of?: string | null
     user: {
       id?: string
       username: string | null
       avatar_url: string | null
     }
+    reposted_by?: {
+      username: string | null
+    } | null
   }
 }
 
@@ -34,6 +38,11 @@ export function Post({ post }: PostProps) {
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [followerCount, setFollowerCount] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false)
+  const [originalPost, setOriginalPost] = useState<any | null>(null)
+  const [repostCount, setRepostCount] = useState(0)
+  const [isReposted, setIsReposted] = useState(false)
+
+  const targetPostId = post.repost_of || post.id
 
   // Function to fetch like and bookmark status
   const fetchUserInteractions = async (userId: string) => {
@@ -42,8 +51,8 @@ export function Post({ post }: PostProps) {
     try {
       // Fix: Use maybeSingle() instead of single() to handle cases where no record exists
       const [userLikeResult, userBookmarkResult] = await Promise.all([
-        supabase.from("post_likes").select("*").eq("post_id", post.id).eq("user_id", userId).maybeSingle(),
-        supabase.from("post_bookmarks").select("*").eq("post_id", post.id).eq("user_id", userId).maybeSingle(),
+        supabase.from("post_likes").select("*").eq("post_id", targetPostId).eq("user_id", userId).maybeSingle(),
+        supabase.from("post_bookmarks").select("*").eq("post_id", targetPostId).eq("user_id", userId).maybeSingle(),
       ])
 
       // Check for errors
@@ -65,8 +74,8 @@ export function Post({ post }: PostProps) {
   const fetchCounts = async () => {
     try {
       const [likesResult, commentsResult] = await Promise.all([
-        supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", post.id),
-        supabase.from("post_comments").select("*", { count: "exact", head: true }).eq("post_id", post.id),
+        supabase.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", targetPostId),
+        supabase.from("post_comments").select("*", { count: "exact", head: true }).eq("post_id", targetPostId),
       ])
 
       // Check for errors
@@ -104,6 +113,42 @@ export function Post({ post }: PostProps) {
         }
 
         await fetchCounts()
+
+        // If this is a repost, fetch original post and counts
+        if (post.repost_of) {
+          const [{ data: orig }, { count: repostsCount }, userRepost] = await Promise.all([
+            supabase
+              .from("posts")
+              .select(
+                `*, user:user_id (username, avatar_url)`
+              )
+              .eq("id", post.repost_of)
+              .maybeSingle(),
+            supabase.from("posts").select("id", { count: "exact", head: true }).eq("repost_of", post.repost_of),
+            user ? supabase.from("posts").select("id").eq("repost_of", post.repost_of).eq("user_id", user.id).maybeSingle() : Promise.resolve({ data: null })
+          ])
+
+          if (orig) setOriginalPost(orig)
+          setRepostCount(repostsCount ?? 0)
+          // @ts-ignore safe access if provided
+          setIsReposted(!!userRepost?.data)
+        } else {
+          // Not a repost; compute repost count for this post as original
+          const { count } = await supabase
+            .from("posts")
+            .select("id", { count: "exact", head: true })
+            .eq("repost_of", post.id)
+          setRepostCount(count ?? 0)
+          if (user) {
+            const { data: userRepost } = await supabase
+              .from("posts")
+              .select("id")
+              .eq("repost_of", post.id)
+              .eq("user_id", user.id)
+              .maybeSingle()
+            setIsReposted(!!userRepost)
+          }
+        }
       } catch (error) {
         console.error("Error in fetchData:", error)
       }
@@ -113,14 +158,14 @@ export function Post({ post }: PostProps) {
 
     // Set up real-time subscriptions for likes and comments
     const likesSubscription = supabase
-      .channel(`post-likes-${post.id}`)
+      .channel(`post-likes-${targetPostId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "post_likes",
-          filter: `post_id=eq.${post.id}`,
+          filter: `post_id=eq.${targetPostId}`,
         },
         (payload) => {
           // Refresh counts and user interaction status when likes change
@@ -133,14 +178,14 @@ export function Post({ post }: PostProps) {
       .subscribe()
 
     const commentsSubscription = supabase
-      .channel(`post-comments-${post.id}`)
+      .channel(`post-comments-${targetPostId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "post_comments",
-          filter: `post_id=eq.${post.id}`,
+          filter: `post_id=eq.${targetPostId}`,
         },
         () => {
           fetchCounts()
@@ -153,17 +198,20 @@ export function Post({ post }: PostProps) {
       supabase.removeChannel(likesSubscription)
       supabase.removeChannel(commentsSubscription)
     }
-  }, [supabase, post.id, user?.id])
+  }, [supabase, targetPostId, user?.id])
 
   const username = post.user.username || "Anonymous"
+  const isRepost = !!post.repost_of
+  const contentPost = isRepost && originalPost ? originalPost : post
+  const headerUser = isRepost && originalPost ? originalPost.user : post.user
 
   // Create a properly typed user object for CustomAvatar
   const avatarUser = {
-    id: post.user.id || "",
-    username: post.user.username,
-    avatar_url: post.user.avatar_url,
+    id: (post.user.id as string) || "",
+    username: headerUser?.username,
+    avatar_url: headerUser?.avatar_url,
     bio: null,
-    created_at: post.created_at,
+    created_at: contentPost.created_at,
     email: "",
   } as User
 
@@ -208,13 +256,13 @@ export function Post({ post }: PostProps) {
             <div className="flex items-start justify-between">
               <div className="flex items-center text-sm">
                 <span className="font-bold text-gray-900 hover:underline truncate max-w-[120px] sm:max-w-none">
-                  {username}
+                  {headerUser?.username || username}
                 </span>
                 {/* Only show date on desktop */}
                 <div className="hidden sm:flex items-center">
                   <span className="text-gray-500 mx-1">·</span>
                   <span className="text-gray-500 hover:underline text-sm">
-                    {formatTimestamp(new Date(post.created_at))}
+                    {formatTimestamp(new Date(contentPost.created_at))}
                   </span>
                 </div>
               </div>
@@ -225,16 +273,24 @@ export function Post({ post }: PostProps) {
               </div>
             </div>
 
+            {isRepost && (
+              <div className="text-xs text-gray-500">Reposted by {post.user.username || "Anonymous"}</div>
+            )}
+
             {/* Post content */}
             <div className="mt-1 text-gray-900 text-sm sm:text-base">
-              <p className="whitespace-pre-wrap break-words leading-normal">{post.content}</p>
+              {isRepost && !originalPost ? (
+                <p className="whitespace-pre-wrap break-words leading-normal text-gray-500">Original post is unavailable</p>
+              ) : (
+                <p className="whitespace-pre-wrap break-words leading-normal">{contentPost.content}</p>
+              )}
             </div>
 
             {/* Post image if any */}
-            {post.image_url && (
+            {contentPost.image_url && (
               <div className="mt-2 sm:mt-3 rounded-xl sm:rounded-2xl overflow-hidden border border-gray-200">
                 <Image
-                  src={post.image_url || "/placeholder.svg"}
+                  src={contentPost.image_url || "/placeholder.svg"}
                   alt="Post image"
                   width={600}
                   height={400}
@@ -247,13 +303,17 @@ export function Post({ post }: PostProps) {
             {/* Action buttons */}
             <div className="mt-2 sm:mt-3 flex justify-between">
               <PostActions
-                postId={post.id}
+                postId={isRepost ? post.repost_of || post.id : post.id}
                 initialLikeCount={likeCount}
                 initialCommentCount={commentCount}
+                initialRepostCount={repostCount}
                 isLiked={isLiked}
                 isBookmarked={isBookmarked}
-                postUserId={post.user_id}
+                isReposted={isReposted}
+                postUserId={contentPost.user_id}
                 currentUserId={user?.id}
+                ownPostId={post.id}
+                ownPostUserId={post.user_id}
                 onLikeChange={handleLikeChange}
                 onBookmarkChange={handleBookmarkChange}
               />

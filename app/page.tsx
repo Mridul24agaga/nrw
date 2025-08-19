@@ -6,6 +6,7 @@ import { Post } from "@/components/post"
 import TabGroup from "@/components/tab-group"
 import WelcomePost from "@/components/welcome-post"
 import Sidebar from "@/components/sidebar"
+import HighlightedMemorials from "@/components/highlighted-memorials"
 
 export default async function Home() {
   const supabase = createServerComponentClient({ cookies })
@@ -55,8 +56,12 @@ export default async function Home() {
           </div>
 
           {/* Right Sidebar */}
-          <div className="hidden lg:block lg:w-[240px] xl:w-[280px] lg:shrink-0">
-            <div className="sticky top-20"></div>
+          <div className="hidden lg:block lg:w-[260px] xl:w-[300px] lg:shrink-0">
+            <div className="sticky top-20">
+              {/* Highlighted memorials + CTA banner */}
+              {/* @ts-expect-error Server Component */}
+              <HighlightedMemorials />
+            </div>
           </div>
         </div>
       </div>
