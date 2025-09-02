@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@/utils/supabase-client"
 import Image from "next/image"
 import { PostActions } from "./post-actions"
 import { FollowButton } from "./follow-button"
@@ -29,7 +29,7 @@ interface PostProps {
 }
 
 export function Post({ post }: PostProps) {
-  const supabase = createClientComponentClient()
+  const supabase = createClient()
 
   const [user, setUser] = useState<any>(null)
   const [likeCount, setLikeCount] = useState(0)

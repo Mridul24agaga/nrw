@@ -72,7 +72,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   return (
     <div className="container mx-auto px-4 py-8 bg-white">
-      <h1 className="text-3xl font-bold mb-8 text-black border-b pb-4">Search Results for "{query}"</h1>
+      <h1 className="text-3xl font-bold mb-8 text-black border-b pb-4">Search Results for &ldquo;{query}&rdquo;</h1>
 
       {/* Memorial Pages Section */}
       {memorialPages && memorialPages.length > 0 && (
@@ -104,7 +104,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       <div className="mb-10">
         <h2 className="text-2xl font-semibold mb-5 text-black">Users</h2>
         {usersWithData.length === 0 ? (
-          <p className="text-black text-lg">No users found matching "{query}"</p>
+          <p className="text-black text-lg">No users found matching &ldquo;{query}&rdquo;</p>
         ) : (
           <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {usersWithData.map((user) => (
@@ -137,7 +137,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
       {/* Show message if no results found at all */}
       {usersWithData.length === 0 && (!memorialPages || memorialPages.length === 0) && (
-        <p className="text-lg text-black">No results found matching "{query}"</p>
+        <p className="text-lg text-black">No results found matching &ldquo;{query}&rdquo;</p>
       )}
     </div>
   )

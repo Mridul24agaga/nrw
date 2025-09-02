@@ -16,7 +16,7 @@ export default function WelcomePost() {
           <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
             Welcome to MemoriesLived.com! This idea came to me after my father-in-law, Larry Knoll, was cremated,
             leaving us no physical place to remember him. I created this thoughtful space so anyone can grieve, laugh,
-            love, and celebrate those they've lost—anytime, anywhere. Take a moment to explore, create a Memorial Page,
+            love, and celebrate those they&apos;ve lost—anytime, anywhere. Take a moment to explore, create a Memorial Page,
             and share the stories and memories that keep your loved ones alive in your heart.
           </p>
         </div>

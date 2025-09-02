@@ -1,11 +1,11 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { createMutableClient } from "@/utils/server"
 import { cookies } from "next/headers"
 import { v4 as uuidv4 } from "uuid"
 
 export async function uploadMemoryImage(formData: FormData) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { session },

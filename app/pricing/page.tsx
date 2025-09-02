@@ -78,7 +78,7 @@ export default function PricingPage() {
               <p className="text-gray-700 mb-4">To upgrade, please send $5 via PayPal to:</p>
               <p className="text-lg font-semibold text-blue-600 mb-6">payments@memorialpages.com</p>
               <p className="text-sm text-gray-600 mb-4">
-                After payment, click the button below and we'll upgrade your account within 24 hours.
+                After payment, click the button below and we&apos;ll upgrade your account within 24 hours.
               </p>
               <button
                 onClick={handleUpgrade}
@@ -93,7 +93,7 @@ export default function PricingPage() {
           </div>
         </div>
         <p className="mt-8 text-center text-sm text-gray-600">
-          Thank you for supporting our beta platform. We're constantly improving and your feedback is valuable to us.
+          Thank you for supporting our beta platform. We&apos;re constantly improving and your feedback is valuable to us.
         </p>
       </div>
     </div>

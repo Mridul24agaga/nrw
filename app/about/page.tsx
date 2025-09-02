@@ -50,7 +50,7 @@ export default function AboutPage() {
                 priority
               />
               <div className="mt-6 text-center">
-                <p className="text-lg text-gray-600 italic">"Where life begins & love never ends"</p>
+                <p className="text-lg text-gray-600 italic">&ldquo;Where life begins &amp; love never ends&rdquo;</p>
               </div>
             </div>
           </section>
@@ -90,9 +90,9 @@ export default function AboutPage() {
           <section className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 sm:p-12 shadow-xl space-y-6">
             <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">Our Heartfelt Mission</h2>
             <p className="text-gray-600 leading-relaxed text-lg">
-              We're on a journey to transform the way we remember and celebrate lives. MemoriesLived.com is more than a
-              platform; it's a compassionate space where grief finds solace, where joy resurfaces in shared stories, and
-              where the legacy of those we've lost continues to inspire and guide us.
+              We&apos;re on a journey to transform the way we remember and celebrate lives. MemoriesLived.com is more than a
+              platform; it&apos;s a compassionate space where grief finds solace, where joy resurfaces in shared stories, and
+              where the legacy of those we&apos;ve lost continues to inspire and guide us.
             </p>
             <p className="text-gray-600 leading-relaxed text-lg">
               Our mission is to make the act of remembering as beautiful, personal, and enduring as the lives we honor.
@@ -106,7 +106,7 @@ export default function AboutPage() {
             </div>
             <blockquote className="text-center">
               <p className="text-2xl sm:text-3xl font-medium text-gray-900 max-w-3xl mx-auto">
-                "To live in hearts we leave behind is not to die."
+                &ldquo;To live in hearts we leave behind is not to die.&rdquo;
               </p>
               <footer className="mt-4 text-gray-600">
                 <cite className="font-medium">Thomas Campbell</cite>

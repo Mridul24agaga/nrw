@@ -102,7 +102,7 @@ export default function ReedemIdPage() {
       <h1 className="text-2xl font-bold mb-4">Your Promo Code</h1>
       {promoCode ? (
         <>
-          <p className="mb-4">Here's your unique promo code:</p>
+          <p className="mb-4">Here&apos;s your unique promo code:</p>
           <div className="bg-gray-100 p-4 rounded-lg text-center">
             <span className="text-2xl font-mono font-bold">{promoCode}</span>
           </div>

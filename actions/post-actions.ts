@@ -1,11 +1,10 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createMutableClient } from "@/utils/server"
 import { revalidatePath } from "next/cache"
 
 export async function toggleLike(postId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { session },
@@ -43,7 +42,7 @@ export async function toggleLike(postId: string) {
 }
 
 export async function toggleBookmark(postId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { session },
@@ -85,7 +84,7 @@ export async function toggleBookmark(postId: string) {
 }
 
 export async function addComment(postId: string, content: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { session },
@@ -111,7 +110,7 @@ export async function addComment(postId: string, content: string) {
 }
 
 export async function deleteComment(commentId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { session },
@@ -129,7 +128,7 @@ export async function deleteComment(commentId: string) {
 }
 
 export async function deletePost(postId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   // Get the current user
   const {
@@ -185,7 +184,7 @@ export async function deletePost(postId: string) {
 }
 
 export async function toggleRepost(originalPostId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { session },

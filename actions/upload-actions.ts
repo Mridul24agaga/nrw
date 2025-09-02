@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { createMutableClient } from "@/utils/server"
 import { cookies } from "next/headers"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
@@ -14,7 +14,7 @@ export async function uploadPostImage(formData: FormData) {
     }
 
     const cookieStore = cookies()
-    const supabase = createServerActionClient({ cookies: () => cookieStore })
+    const supabase = await createMutableClient()
 
     // Verify the user is authenticated
     const {

@@ -31,9 +31,9 @@ export default function TermsPage() {
           <div className="space-y-6 text-gray-600">
             <section>
               <p className="mb-6">
-                Welcome to MemoriesLived.com (the "Website"), a service provided by CJM Ashton, LLC (the "Company,"
-                "we," "us," or "our"). By creating an account and accessing or using our Website, you agree to be bound
-                by the following Terms of Service ("Terms") and Privacy Policy. Please read them carefully before using
+                Welcome to MemoriesLived.com (the &ldquo;Website&rdquo;), a service provided by CJM Ashton, LLC (the &ldquo;Company,&rdquo;
+                &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;). By creating an account and accessing or using our Website, you agree to be bound
+                by the following Terms of Service (&ldquo;Terms&rdquo;) and Privacy Policy. Please read them carefully before using
                 the Website.
               </p>
               <p>
@@ -68,7 +68,7 @@ export default function TermsPage() {
               <h2 className="text-2xl font-semibold text-gray-900 mt-8 mb-4">2. User Content</h2>
               <p>
                 You retain ownership of any content you post on the Website, including photos, videos, text, and other
-                materials ("User Content"). However, by posting User Content, you grant us a worldwide, non-exclusive,
+                materials (&ldquo;User Content&rdquo;). However, by posting User Content, you grant us a worldwide, non-exclusive,
                 royalty-free, sublicensable, and transferable license to use, distribute, reproduce, modify, adapt,
                 publish, translate, publicly display, and create derivative works of such User Content.
               </p>
@@ -145,7 +145,7 @@ export default function TermsPage() {
               <p>
                 You agree to indemnify, defend, and hold harmless the Company, its officers, directors, employees,
                 agents, and affiliates from and against any and all claims, liabilities, damages, losses, or expenses,
-                including reasonable attorneys' fees and costs, arising out of or in any way connected with your access
+                including reasonable attorneys&apos; fees and costs, arising out of or in any way connected with your access
                 to or use of the Website, your violation of these Terms, or your violation of any third-party rights.
               </p>
             </section>
@@ -227,11 +227,11 @@ export default function TermsPage() {
 
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mt-8 mb-4">
-                13. Children's Privacy (COPPA Compliance)
+                13. Children&apos;s Privacy (COPPA Compliance)
               </h2>
               <p>
                 Our Website is not directed to children under 18, and we do not knowingly collect personal information
-                from children under 18 in compliance with the Children's Online Privacy Protection Act (COPPA). If we
+                from children under 18 in compliance with the Children&apos;s Online Privacy Protection Act (COPPA). If we
                 learn that we have inadvertently collected personal information from a child under 18, we will delete
                 that information as quickly as possible.
               </p>

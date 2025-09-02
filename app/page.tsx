@@ -1,5 +1,4 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClient } from "@/utils/server"
 import { redirect } from "next/navigation"
 import CreatePost from "@/components/create-post"
 import { Post } from "@/components/post"
@@ -9,7 +8,7 @@ import Sidebar from "@/components/sidebar"
 import HighlightedMemorials from "@/components/highlighted-memorials"
 
 export default async function Home() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createClient()
 
   const {
     data: { session },
@@ -31,37 +30,34 @@ export default async function Home() {
     .order("created_at", { ascending: false })
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="w-full px-2 sm:px-3 md:px-4 py-6">
-        <div className="flex flex-col lg:flex-row gap-4 md:gap-6 lg:gap-8">
-          {/* Left Sidebar */}
-          <div className="hidden lg:block lg:w-[240px] xl:w-[280px] lg:shrink-0">
-            <div className="sticky top-20">
-              <Sidebar />
+    <div className="w-full px-2 sm:px-3 md:px-4 py-6">
+      <div className="flex flex-col lg:flex-row gap-4 md:gap-6 lg:gap-8">
+        {/* Left Sidebar */}
+        <div className="hidden lg:block lg:w-[240px] xl:w-[280px] lg:shrink-0">
+          <div className="sticky top-20">
+            <Sidebar />
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 w-full">
+          <div className="rounded-lg bg-white shadow">
+            <TabGroup />
+            <CreatePost />
+            <WelcomePost />
+            <div className="divide-y divide-gray-100">
+              {posts?.map((post) => (
+                <Post key={post.id} post={post} />
+              ))}
             </div>
           </div>
+        </div>
 
-          {/* Main Content */}
-          <div className="flex-1 w-full">
-            <div className="rounded-lg bg-white shadow">
-              <TabGroup />
-              <CreatePost />
-              <WelcomePost />
-              <div className="divide-y divide-gray-100">
-                {posts?.map((post) => (
-                  <Post key={post.id} post={post} />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="hidden lg:block lg:w-[260px] xl:w-[300px] lg:shrink-0">
-            <div className="sticky top-20">
-              {/* Highlighted memorials + CTA banner */}
-              {/* @ts-expect-error Server Component */}
-              <HighlightedMemorials />
-            </div>
+        {/* Right Sidebar */}
+        <div className="hidden lg:block lg:w-[260px] xl:w-[300px] lg:shrink-0">
+          <div className="sticky top-20">
+            {/* Highlighted memorials + CTA banner */}
+            <HighlightedMemorials />
           </div>
         </div>
       </div>

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { X, User } from "lucide-react"
 import Image from "next/image"
 import { addComment } from "@/actions/post-actions"
-import { getAvatarUrl } from "@/lib/supabase-client"
+import { getAvatarUrl } from "@/utils/supabase-client"
 import type { User as UserType, Comment as CommentType } from "@/lib/types"
 
 interface CommentDialogProps {

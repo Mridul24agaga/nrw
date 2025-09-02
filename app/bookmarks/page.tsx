@@ -94,7 +94,7 @@ export default async function BookmarkPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-center py-8">You haven't bookmarked any posts yet.</p>
+              <p className="text-center py-8">You haven&apos;t bookmarked any posts yet.</p>
             )}
           </div>
         </div>

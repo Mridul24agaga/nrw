@@ -1,19 +1,19 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { createMutableClient } from "@/utils/server"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { cache } from "react"
 
 // Cache the Supabase client creation
-const getSupabase = cache(() => {
-  return createServerActionClient({ cookies })
+const getSupabase = cache(async () => {
+  return await createMutableClient()
 })
 
 export async function toggleFollow(
   userToFollowId: string,
 ): Promise<{ success: boolean; following: boolean; error?: string }> {
-  const supabase = getSupabase()
+  const supabase = await getSupabase()
 
   try {
     // Get current user
@@ -97,7 +97,7 @@ export async function toggleFollow(
 }
 
 export async function getFollowingStatus(userId: string) {
-  const supabase = getSupabase()
+  const supabase = await getSupabase()
 
   try {
     const {
@@ -123,7 +123,7 @@ export async function getFollowingStatus(userId: string) {
 }
 
 export async function getFollowingCount(userId: string) {
-  const supabase = getSupabase()
+  const supabase = await getSupabase()
 
   try {
     const { count, error } = await supabase
@@ -142,7 +142,7 @@ export async function getFollowingCount(userId: string) {
 }
 
 export async function getFollowerCount(userId: string) {
-  const supabase = getSupabase()
+  const supabase = await getSupabase()
 
   try {
     const { count, error } = await supabase

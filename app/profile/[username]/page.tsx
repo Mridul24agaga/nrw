@@ -331,6 +331,17 @@ export default function ProfilePage() {
 
       setUser(userData)
       setAvatarUrl(userData.avatar_url)
+
+      // If viewing own profile and no avatar yet, try syncing from Google metadata
+      const googleAvatarUrl = (sessionData?.session?.user as any)?.user_metadata?.avatar_url || (sessionData?.session?.user as any)?.user_metadata?.picture || null
+      if (sessionData?.session?.user?.id === userData.id && !userData.avatar_url && googleAvatarUrl) {
+        try {
+          await supabase.from("users").update({ avatar_url: googleAvatarUrl }).eq("id", userData.id)
+          setAvatarUrl(googleAvatarUrl)
+        } catch (syncErr) {
+          console.error("Profile page avatar sync error:", syncErr)
+        }
+      }
       setEditedBio(userData.bio || "")
 
       // Fetch relationship stats using the user_relationships table

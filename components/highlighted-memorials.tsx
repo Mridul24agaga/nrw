@@ -84,13 +84,7 @@ export default async function HighlightedMemorials() {
           >
             Get highlighted
           </Link>
-          <div className="mt-3 flex flex-col sm:flex-row gap-2">
-            <Link
-              href="/discover"
-              className="inline-block px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 text-center"
-            >
-              Discover random pages
-            </Link>
+          <div className="mt-3">
             <Link
               href="/memorial/random"
               className="inline-block px-3 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 text-center"

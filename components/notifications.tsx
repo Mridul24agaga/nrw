@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Bell } from "lucide-react"
-import { supabase } from "@/lib/supabase-client"
+import { createClient } from "@/utils/supabase-client"
+
+const supabase = createClient()
 import NotificationList from "./notification-list"
 
 export default function Notifications() {

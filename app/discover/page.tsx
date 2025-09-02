@@ -39,7 +39,6 @@ export default async function DiscoverPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Discover memorial pages</h1>
             <Link href="/" className="text-sm text-blue-600 hover:underline">Back to Home</Link>
           </div>
-          {/* @ts-expect-error Server-to-Client boundary */}
           <MemorialSwiper items={items} />
         </div>
       </div>

@@ -1,11 +1,11 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { createMutableClient } from "@/utils/server"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
 export async function addMemory(memorialId: string, content: string, imageUrl?: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { session },
@@ -59,7 +59,7 @@ export async function addMemory(memorialId: string, content: string, imageUrl?: 
 }
 
 export async function likeMemory(memoryId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { session },
@@ -107,7 +107,7 @@ export async function likeMemory(memoryId: string) {
 }
 
 export async function addMemoryComment(memoryId: string, content: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { session },
@@ -138,7 +138,7 @@ export async function addMemoryComment(memoryId: string, content: string) {
 }
 
 export async function deleteMemory(memoryId: string, memorialId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { session },
@@ -205,7 +205,7 @@ export async function deleteMemory(memoryId: string, memorialId: string) {
 }
 
 export async function getMemoryLikes(memoryId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   try {
     const { count, error } = await supabase
@@ -223,7 +223,7 @@ export async function getMemoryLikes(memoryId: string) {
 }
 
 export async function getMemoryComments(memoryId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   try {
     const { data, error, count } = await supabase
@@ -250,7 +250,7 @@ export async function getMemoryComments(memoryId: string) {
 }
 
 export async function isMemoryLiked(memoryId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { session },

@@ -1,5 +1,5 @@
 import Image from "next/image"
-import { getAvatarUrl } from "@/lib/supabase-client"
+import { getAvatarUrl } from "@/utils/supabase-client"
 import type { MemorialPage } from "@/lib/types"
 
 interface MemorialPageHeaderProps {

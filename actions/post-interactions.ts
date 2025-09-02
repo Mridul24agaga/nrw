@@ -1,11 +1,10 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createMutableClient } from "@/utils/server"
 import { revalidatePath } from "next/cache"
 
 export async function toggleLike(postId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { user },
@@ -41,7 +40,7 @@ export async function toggleLike(postId: string) {
 }
 
 export async function toggleBookmark(postId: string) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createMutableClient()
 
   const {
     data: { user },

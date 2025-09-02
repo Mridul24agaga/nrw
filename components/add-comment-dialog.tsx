@@ -42,7 +42,7 @@ export function AddCommentDialog({ postId }: AddCommentDialogProps) {
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add a comment</DialogTitle>
-          <DialogDescription>Write your comment below. Click save when you're done.</DialogDescription>
+          <DialogDescription>Write your comment below. Click save when you&apos;re done.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Textarea

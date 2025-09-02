@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createMemorial } from "@/actions/memorial"
 import { useFormStatus } from "react-dom"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@supabase/supabase-js"
 import PremiumPopup from "@/components/PremiumPopup"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -44,7 +44,10 @@ export default function CreateMemorialForm() {
     coverPhoto: "/memorial-background.png",
   })
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
   useEffect(() => {
     checkUserStatus()
@@ -187,7 +190,7 @@ export default function CreateMemorialForm() {
                     <h3 className="text-sm font-medium text-yellow-800">Upgrade Required</h3>
                     <div className="mt-2 text-sm text-yellow-700">
                       <p>
-                        You've reached the limit for free accounts. Upgrade to premium to create unlimited memorial
+                        You&apos;ve reached the limit for free accounts. Upgrade to premium to create unlimited memorial
                         pages.
                       </p>
                     </div>

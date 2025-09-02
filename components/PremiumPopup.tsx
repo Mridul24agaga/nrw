@@ -13,7 +13,7 @@ const PremiumPopup: React.FC<PremiumPopupProps> = ({ onClose }) => {
       <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
         <h2 className="text-2xl font-bold mb-4">Upgrade to Premium</h2>
         <p className="mb-6">
-          You've reached the limit for free accounts. Upgrade to premium to create unlimited memorial pages.
+          You&apos;ve reached the limit for free accounts. Upgrade to premium to create unlimited memorial pages.
         </p>
         <div className="flex justify-end space-x-4">
           <button
