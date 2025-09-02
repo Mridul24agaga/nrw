@@ -13,7 +13,7 @@ export async function uploadPostImage(formData: FormData) {
       return { error: "No file provided" }
     }
 
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const supabase = await createMutableClient()
 
     // Verify the user is authenticated
