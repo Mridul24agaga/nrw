@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import { Button } from "./ui/button"
 import { PricingPopup } from "./pricing-popup"
 import type React from "react"
@@ -25,7 +25,10 @@ export function FlowerOptions({ memorialId }: FlowerOptionsProps) {
   const [flowerType, setFlowerType] = useState("delivery")
   const [user, setUser] = useState<any>(null)
   const [showPricingPopup, setShowPricingPopup] = useState(false)
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
   useEffect(() => {
     fetchVirtualFlowers()

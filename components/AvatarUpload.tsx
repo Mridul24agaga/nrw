@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useUploadThing } from "@/lib/uploadthing"
 import Image from "next/image"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 
 interface AvatarUploadClientProps {
   currentAvatarUrl: string | null
@@ -15,7 +15,10 @@ export function AvatarUploadClient({ currentAvatarUrl, username, userId }: Avata
   const [isUploading, setIsUploading] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState(currentAvatarUrl)
   const { startUpload } = useUploadThing("imageUploader")
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]

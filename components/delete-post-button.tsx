@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 
 interface DeletePostButtonProps {
   postId: string
@@ -11,7 +11,10 @@ interface DeletePostButtonProps {
 
 export function DeletePostButton({ postId, onDeleteStart, onDeleteComplete }: DeletePostButtonProps) {
   const [isDeleting, setIsDeleting] = useState(false)
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
   const handleDelete = async () => {
     if (isDeleting) return

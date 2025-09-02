@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { ImageIcon, Loader2, RefreshCw } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import { useRouter } from "next/navigation"
 import { upload } from "@vercel/blob/client"
 import { cn } from "@/lib/utils"
@@ -28,7 +28,10 @@ export default function CreatePost({ onPostComplete, onContentChange }: CreatePo
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
   const router = useRouter()
 
   useEffect(() => {

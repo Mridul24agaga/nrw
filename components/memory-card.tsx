@@ -7,7 +7,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { likeMemory, addMemoryComment, deleteMemory } from "@/actions/memory-actions"
 import { CustomAvatar } from "./custom-avatar"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface ThemeColor {
@@ -61,7 +61,10 @@ export function MemoryCard({
   },
 }: MemoryCardProps) {
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
   // Parse memory content
   const [content, setContent] = useState("")

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import { ImageIcon, X, Upload } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
@@ -22,7 +22,10 @@ export function AddMemoryForm({ memorialId, onMemoryAdded }: AddMemoryFormProps)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
   const router = useRouter()
 
   const handleDrag = (e: React.DragEvent) => {

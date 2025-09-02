@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import { notFound, useParams } from "next/navigation"
 import Image from "next/image"
 import Sidebar from "@/components/sidebar"
@@ -29,7 +29,10 @@ function Post({ post, currentUser }: { post: any; currentUser?: any }) {
   const [isLiked, setIsLiked] = useState(false)
   const [likesCount, setLikesCount] = useState(0)
   const [commentsCount, setCommentsCount] = useState(0)
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
   useEffect(() => {
     // Parse likes and comments from jsonb
@@ -146,7 +149,10 @@ function RelationshipButton({
   initialRelationship: string | null
   onRelationshipChange?: (relationship: string | null) => void
 }) {
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
   const [relationship, setRelationship] = useState<string | null>(initialRelationship)
   const [isLoading, setIsLoading] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -291,7 +297,10 @@ function RelationshipButton({
 
 // Main Profile Page Component
 export default function ProfilePage() {
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
   const params = useParams()
   const username = params?.username as string
 

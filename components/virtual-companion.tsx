@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import { MessageSquare, Book, RefreshCw } from "lucide-react"
 
 interface Message {
@@ -46,7 +46,10 @@ export default function VirtualCompanion() {
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
   const [activeTab, setActiveTab] = useState<"diary" | "chat">("chat")
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
   useEffect(() => {
     fetchCompanionData().then(() => {

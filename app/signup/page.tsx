@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import Image from "next/image"
 import Link from "next/link"
 import { Eye, EyeOff } from "lucide-react"
@@ -18,7 +18,10 @@ export default function SignUp() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
   useEffect(() => {
     setMounted(true)
