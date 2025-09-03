@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@supabase/supabase-js"
 import { getUsers, getChannels, createChannel } from "@/actions/chat"
-import { useUser } from "@supabase/auth-helpers-react"
 import { MessageSquarePlus, Plus } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -34,10 +33,17 @@ export default function DirectMessages() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showUserList, setShowUserList] = useState(false)
-  const currentUser = useUser()
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const router = useRouter()
 
   useEffect(() => {
+    // Get current user
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setCurrentUser(user)
+    }
+    getCurrentUser()
+    
     fetchUsers()
   }, [])
 
